@@ -46,6 +46,28 @@ Findings:
 5. **A larger cell vocabulary does not change the picture.** The two-phase greedy over 66 cells lands where NAND-only duplication does (2189 ps / 507 µm²).
 6. **None of this matters on an FPGA.** yosys/abc maps `a*b` and all three gate-level variants to the same 80 LUTs, depth 5.
 
+## research branch: arithmetic-level equivalence (compression schedules)
+
+Instead of rewriting gates, change **the order in which partial-product columns are compressed**
+(array, Wallace, Dadda, arrival-greedy, random). Same cells, same partial products; only the adder wiring
+differs. Correctness of every schedule is one Lean theorem, `multiplier_correct` in `lean/ArithEquiv.lean`
+(core Lean 4, no Mathlib, axioms propext and Quot.sound only), so the search carries no per-candidate proof;
+emitted netlists are still checked on 256/256 inputs.
+
+| design (post-layout) | delay | area µm² | energy / op |
+|---|---:|---:|---:|
+| **Dadda, xor2/xor2/a21o (56 cells)** | **1662 ps** | **410** | **440 fJ** |
+| Dadda, 9-NAND (124 cells) | 1688 ps | 465 | 598 fJ |
+| array, 9-NAND (124 cells, = original) | 2319 ps | 465 | 749 fJ |
+| standard flow, 2 ns target | 1998 ps | 1775 | 3505 fJ |
+
+Re-wiring the same 124 cells from array to Dadda order is 27 % faster at zero area cost, an order of
+magnitude more than gate duplication bought (5 % for 10 % area). Dadda with xor2/a21o adders beats the
+standard flow's fastest result by 17 % in delay, 4.3× in area and 8× in energy per operation, and dominates
+every other design on all three axes. Keeping the arithmetic structure and rewriting *at the arithmetic level*
+worked where discarding structure and re-synthesizing from the function (abc) did not.
+Details in `results/summary.md` §5; reproduce with `python3 src/arith_search.py 400`.
+
 ## Retractions
 
 Intermediate claims that were withdrawn are kept here rather than deleted.

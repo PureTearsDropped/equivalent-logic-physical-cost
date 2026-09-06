@@ -72,3 +72,39 @@ Glitch share = 1 − (toggles in a zero-delay simulation) / (toggles in the SDF 
 ## 4. LUT mapping (yosys 0.62 `synth_xilinx`, xc7)
 
 `assign p = a*b` and all three gate-level variants map to exactly 80 LUTs, depth 5. abc re-synthesizes the 8-input function from scratch; no input structure survives.
+
+## 5. Arithmetic-level schedules (research branch)
+
+Same cells, same partial products; only the *order in which columns are compressed* changes.
+`src/arith_search.py`; correctness of every schedule is the Lean theorem `ArithEquiv.multiplier_correct`
+(`lean/ArithEquiv.lean`, core Lean 4, no Mathlib, axioms `propext` + `Quot.sound` only), and every emitted
+netlist is still checked on 256/256 inputs.
+
+Cell-only STA (size-1 cells, output load 10 fF):
+
+| schedule | pp / HA / FA | cells | area µm² | model ps | OpenSTA ps |
+|---|---|---:|---:|---:|---:|
+| array (row-by-row ripple, = `all_nand_inv`) | nand+inv / nand5 / nand9 | 124 | 465 | 1920 | 1940 |
+| Wallace | nand+inv / nand5 / nand9 | 124 | 465 | 1528 | – |
+| arrival-greedy (tallest column, earliest bits) | nand+inv / nand5 / nand9 | 124 | 465 | 1524 | – |
+| **Dadda** | nand+inv / nand5 / nand9 | 124 | 465 | **1379** | 1393 |
+| best of 400 random schedules | nand+inv / xor+and / nand9 | 112 | 450 | 1393 | 1409 |
+| array | and2 / xor+and / xor2x2+a21o | 56 | 410 | 2048 | – |
+| **Dadda** | and2 / xor+and / xor2x2+a21o | 56 | 410 | **1463** | 1472 |
+
+Assigning the latest-arriving bit to the carry-in pin ("late_to_cin") changed nothing (±10 ps).
+
+Post-layout (LibreLane, SPEF) and glitch-inclusive energy (SDF simulation, 32768 random vectors, 200 MHz):
+
+| design | arrival ps | cells | logic area µm² | wire µm | E_vcd fJ | toggles/op | glitch |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **dadda_xa** (Dadda, and2 / xor+and / xor2x2+a21o) | **1662** | 56 | **410** | 713 | **440** | 92 | 25 % |
+| dadda_nand9 (Dadda, 9-NAND) | 1688 | 124 | 465 | 975 | 598 | 214 | 31 % |
+| rand0_nand9 (best random) | 1704 | 112 | 450 | 931 | 607 | 208 | 32 % |
+| all_nand_inv (array, 9-NAND) | 2319 | 124 | 465 | 957 | 749 | 259 | 39 % |
+| u_xor2a21o (array, xor2x2+a21o) | 2290 | 72 | 430 | 746 | 589 | 142 | 30 % |
+| behav_delay_2ns (standard flow, 2 ns target) | 1998 | 167 | 1775 | 3645 | 3505 | 303 | 30 % |
+
+`dadda_xa` dominates every other design on all three axes: versus the standard flow's fastest result it is
+17 % faster, 4.3× smaller and uses 8× less energy per operation; versus the array with the same cells it is
+27 % faster and 25 % lower energy at equal area.
