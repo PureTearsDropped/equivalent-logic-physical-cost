@@ -104,6 +104,7 @@ Post-layout (LibreLane, SPEF) and glitch-inclusive energy (SDF simulation, 32768
 | all_nand_inv (array, 9-NAND) | 2319 | 124 | 465 | 957 | 749 | 259 | 39 % |
 | u_xor2a21o (array, xor2x2+a21o) | 2290 | 72 | 430 | 746 | 589 | 142 | 30 % |
 | behav_delay_2ns (standard flow, 2 ns target) | 1998 | 167 | 1775 | 3645 | 3505 | 303 | 30 % |
+| behav_booth_2ns (standard flow + `SYNTH_MUL_BOOTH`, 2 ns target) | 2150 | 210 | 2281 | 4051 | 5335 | 488 | 32 % |
 
 `dadda_xa` dominates every other design on all three axes: versus the standard flow's fastest result it is
 17 % faster, 4.3× smaller and uses 8× less energy per operation; versus the array with the same cells it is
@@ -164,8 +165,11 @@ search must choose rather than the designer.
 | **m8_dadda_nand9_ks** (Dadda + Kogge-Stone, 9-NAND) | **3120 ps** | 646 | 2964 | 7223 | 737 fJ | 21 % |
 | m8_dadda_xa_ks (Dadda + Kogge-Stone, xor2/a21o) | 3150 ps | 386 | 2770 | 5930 | 714 fJ | 21 % |
 | m8_behav_delay_3ns (standard flow, DELAY, 3 ns target) | 3620 ps | 716 | 8288 | 16591 | 4320 fJ | 23 % |
+| m8_behav_booth_3ns (standard flow + `SYNTH_MUL_BOOTH`, 3 ns target) | 3408 ps | 663 | 6838 | 15378 | 10670 fJ | 30 % |
 
 At 8 bits the picture is the same as at 4: re-wiring the same 600 cells from array to Dadda order is 38 %
 faster and 36 % lower energy at zero area cost; the standard flow is slower than Dadda+ripple while using
-3.7× the area and 6.3× the energy. OpenSTA's probabilistic power estimate is 14–33× above simulation at this
+3.7× the area and 6.3× the energy. The flow's Booth option (radix-4 recoding) helps it at 8 bits (3408 ps, 6838 µm²) but it
+still loses to Dadda + Kogge-Stone on delay at 2.3× the area, and its recoding logic toggles so much (999 toggles/op)
+that it uses 14× the energy; at 4 bits Booth is worse than the plain flow on every axis. OpenSTA's probabilistic power estimate is 14–33× above simulation at this
 size (it was 1.3–2.2× at 4 bits) — it is unusable as a ranking signal for deep reconvergent logic.

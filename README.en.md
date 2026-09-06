@@ -76,7 +76,7 @@ The builder and checks are generalized to n bits (`src/scale_sweep.py`) and the 
 delay lives: the final adder is 56 % of the Dadda delay at 4 bits and 61 % at 16. A Kogge-Stone final adder
 loses at 4 bits (fan-out), gains 12 % at 8 and 37 % at 16. Placed and routed at 8×8: array 5692 ps → Dadda
 3505 ps (same 600 cells, −36 % energy) → Dadda + Kogge-Stone 3120 ps; the standard flow (3 ns target) is
-3620 ps at 3.7× the area and 6.3× the energy. Tables in `results/summary.md` §6.
+3620 ps at 3.7× the area and 6.3× the energy; with the flow's Booth option it reaches 3408 ps / 6838 µm² / 10670 fJ, still behind Dadda + Kogge-Stone on delay at 2.3× area and 14× energy (at 4 bits Booth is worse than the plain flow on every axis). Tables in `results/summary.md` §6.
 
 ## Retractions
 
