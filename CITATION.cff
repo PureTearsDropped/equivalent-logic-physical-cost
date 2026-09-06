@@ -1,0 +1,36 @@
+cff-version: 1.2.0
+title: "equivalent-logic-physical-cost"
+message: "If you use this repository, please cite it using this metadata."
+type: software
+version: v1.0.0
+date-released: 2026-09-06
+authors:
+  - name: "PureTearsDropped"
+repository-code: "https://github.com/PureTearsDropped/equivalent-logic-physical-cost"
+license: 0BSD
+abstract: >-
+  Functionally equivalent implementations of an exact unsigned 4x4 multiplier are
+  compared under real physical cost on the SkyWater SKY130 standard-cell library:
+  cell-level NLDM timing (validated against OpenSTA within 1.5%), OpenROAD/LibreLane
+  placement and routing with parasitic extraction, and glitch-inclusive energy per
+  operation from SDF-annotated gate-level simulation. A whole-DAG timing-driven
+  optimizer decides gate duplication, drive strength, and full/half-adder variant
+  selection from the full cell vocabulary; every candidate is verified exhaustively
+  (256/256). Findings: the 9-NAND full adder is the fastest on SKY130; whole-DAG
+  duplication keeps a 4.8% post-layout delay gain that OpenROAD's own resizer does not
+  find; the standard synthesis flow reaches 10% lower delay only at 3.5x area and 6x
+  energy per operation; OpenSTA's probabilistic power estimate over-counts by
+  1.3-2.2x with a design-dependent factor and mis-ranks designs; and yosys/abc
+  collapses every variant to the same 80-LUT FPGA mapping. Retracted intermediate
+  claims are recorded rather than removed.
+keywords:
+  - logic synthesis
+  - standard cells
+  - sky130
+  - OpenROAD
+  - OpenSTA
+  - static timing analysis
+  - gate duplication
+  - power estimation
+  - glitch power
+  - exact multiplier

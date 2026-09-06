@@ -1,0 +1,25 @@
+
+[gain] phase1: 4 moves  1920->1904ps  area 465->480   (5s)
+   choices: {'pp2': ('nand+inv', 4), 'pp5': ('nand+inv', 2), 'fa2': ('xor3+maj3', 2)}
+[gain] phase2: 10 moves  1904->1804ps  area 480->507   (22s)
+   moves: size g37 nand2_1->2, dup g103 nand2_1 (1 sinks), dup g41 nand2_1 (1 sinks), dup g40 nand2_1 (1 sinks), size g71 nand2_1->2, size g112 nand2_1->2, size g5 inv_4->2, size g115 nand2_1->2, dup g67 nand2_1 (1 sinks) ...
+   area<=500: 1806ps
+   area<=550: 1804ps
+   area<=600: 1804ps
+   area<=700: 1804ps
+   area<=800: 1804ps
+   area<=1000: 1804ps
+   final: cells=122 area=507 model=1804ps OpenSTA=1826ps
+
+[eff] phase1: 6 moves  1920->1904ps  area 465->480   (29s)
+   choices: {'pp2': ('nand+inv', 4), 'pp5': ('nand+inv', 2), 'fa2': ('xor3+maj3', 2)}
+[eff] phase2: 13 moves  1904->1798ps  area 480->514   (50s)
+   moves: size g5 inv_4->2, dup g103 nand2_1 (1 sinks), size g37 nand2_1->2, dup g41 nand2_1 (1 sinks), dup g40 nand2_1 (1 sinks), size g64 inv_1->2, size g71 nand2_1->2, size g112 nand2_1->2, size g115 nand2_1->2 ...
+   area<=500: 1806ps
+   area<=550: 1798ps
+   area<=600: 1798ps
+   area<=700: 1798ps
+   area<=800: 1798ps
+   area<=1000: 1798ps
+   final: cells=122 area=514 model=1798ps OpenSTA=1818ps
+done 49.7377827167511

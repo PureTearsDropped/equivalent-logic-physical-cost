@@ -1,0 +1,29 @@
+{
+ "DESIGN_NAME": "behav",
+ "VERILOG_FILES": [
+  "dir::behav.v"
+ ],
+ "PDK": "sky130A",
+ "STD_CELL_LIBRARY": "sky130_fd_sc_hd",
+ "CLOCK_PORT": null,
+ "CLOCK_PERIOD": 10.0,
+ "IO_DELAY_CONSTRAINT": 0,
+ "OUTPUT_CAP_LOAD": 10,
+ "FP_SIZING": "relative",
+ "FP_CORE_UTIL": 40,
+ "RUN_CTS": false,
+ "RUN_LINTER": false,
+ "RUN_EQY": false,
+ "RUN_MAGIC_DRC": false,
+ "RUN_KLAYOUT_XOR": false,
+ "RUN_LVS": false,
+ "RUN_IRDROP_REPORT": false,
+ "RUN_ANTENNA_REPAIR": false,
+ "RUN_FILL_INSERTION": false,
+ "RUN_HEURISTIC_DIODE_INSERTION": false,
+ "RUN_SPEF_EXTRACTION": true,
+ "RUN_SPEF_STA": true,
+ "SYNTH_STRATEGY": "AREA 0",
+ "CLOCK_UNCERTAINTY_CONSTRAINT": 0.0,
+ "RUN_KLAYOUT_DRC": false
+}

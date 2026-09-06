@@ -1,0 +1,8 @@
+The *.json files in this directory are the per-cell Liberty timing tables of the
+SkyWater SKY130 high-density standard cell library (sky130_fd_sc_hd), corner
+tt_025C_1v80, converted to JSON by the upstream project:
+  https://github.com/google/skywater-pdk-libs-sky130_fd_sc_hd
+Copyright 2020 The SkyWater PDK Authors. Licensed under the Apache License,
+Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0). They are redistributed
+here unmodified so that the timing model in src/ is reproducible offline.
+areas.json was extracted from the same library's full Liberty file.

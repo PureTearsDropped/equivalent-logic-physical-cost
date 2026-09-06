@@ -1,0 +1,12 @@
+design               delay   E_prob    E_vcd  ratio toggles/op  glitch%
+all_nand_inv         2319ps  1074.5fJ   748.5fJ   0.70      259.3      39%  warn=0
+all_nand_dup12_inv   2207ps  1157.0fJ   819.0fJ   0.71      282.0      40%  warn=0
+opt_ds               2216ps  1304.5fJ   898.0fJ   0.69      282.8      41%  warn=0
+u_xor2a21o           2290ps  1280.5fJ   588.5fJ   0.46      142.3      30%  warn=0
+full_gain            2189ps  1222.5fJ   776.5fJ   0.64      243.6      37%  warn=0
+full_eff             2190ps  1246.0fJ   824.5fJ   0.66      251.4      39%  warn=0
+all_nand_rsz_2ns     2252ps  2105.0fJ  1585.0fJ   0.75      320.5      48%  warn=0
+dup12_rsz_2ns        2294ps  2660.0fJ  1960.0fJ   0.74      333.6      47%  warn=0
+behav_area           3387ps  2275.0fJ  1175.0fJ   0.52      132.7      29%  warn=0
+behav_delay          3043ps  3310.0fJ  2365.0fJ   0.71      259.2      38%  warn=0
+behav_delay_2ns      1998ps  5065.0fJ  3505.0fJ   0.69      303.0      30%  warn=0
