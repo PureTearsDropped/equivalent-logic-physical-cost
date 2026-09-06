@@ -1,0 +1,14 @@
+1.0 -> 2.7182817 ref=2.7182817 decided=true normal OK
+-1.0 -> 0.36787945 ref=0.36787945 decided=true normal OK
+0.5 -> 1.6487212 ref=1.6487212 decided=true normal OK
+88.0 -> 1.6516363e38 ref=1.6516363e38 decided=true normal OK
+-87.0 -> 1.6458115e-38 ref=1.6458115e-38 decided=true normal OK
+5.9604645e-8 -> 1.0000001 ref=1.0000001 decided=true normal OK
+-5.9604645e-8 -> 0.99999994 ref=0.99999994 decided=true normal OK
+3.14159 -> 23.140635 ref=23.140635 decided=true normal OK
+0.001 -> 1.0010005 ref=1.0010005 decided=true normal OK
+42.42 -> 2.6471048e18 ref=2.6471048e18 decided=true normal OK
+checked=526392938 mismatches=2 undecided=0
+  example x=-87.33655 ours=1.1754944e-38 ref=1.1754907e-38
+  example x=88.72284 ours=3.4028235e38 ref=Inf
+ 45.805317 seconds (3.69 G allocations: 121.619 GiB, 8.28% gc time, 1.25% compilation time)

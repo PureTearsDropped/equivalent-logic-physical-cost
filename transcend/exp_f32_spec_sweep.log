@@ -1,0 +1,2 @@
+checked=526392936 mismatches=0 undecided=0 min_midpoint_distance=315 units of 2^-60 at x=-14.56709
+ 94.812794 seconds (3.69 G allocations: 139.466 GiB, 5.45% gc time, 1.72% compilation time)
