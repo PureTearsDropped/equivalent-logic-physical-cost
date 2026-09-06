@@ -103,12 +103,13 @@ def topo(net):
         assert len(rest)<len(pending); pending=rest
     return order
 
-def timing(net,out_load=0.010,in_slew=0.05):
+def timing_detail(net,out_load=0.010,in_slew=0.05):
     loads=[0.0]*net.nnets; sinks=[[] for _ in range(net.nnets)]
     for ii,inst in enumerate(net.insts):
         c=CELLS[inst['cell']]
         for p,n in inst['pins'].items(): loads[n]+=c['in'][p]; sinks[n].append((ii,p))
-    for n in net.outputs: loads[n]+=out_load
+    for n in net.outputs:
+        if n is not None: loads[n]+=out_load
     rise=[0.0]*net.nnets; fall=[0.0]*net.nnets; sr=[in_slew]*net.nnets; sf=[in_slew]*net.nnets
     for ii in topo(net):
         inst=net.insts[ii]; c=CELLS[inst['cell']]
@@ -128,8 +129,11 @@ def timing(net,out_load=0.010,in_slew=0.05):
                     if t>bf[0]: bf=(t,interp2(a['fall_transition'],sr[src],L))
             rise[on],sr[on]=br; fall[on],sf[on]=bf
     area=sum(CELLS[i['cell']]['area'] for i in net.insts)
-    arr=[max(rise[o],fall[o]) for o in net.outputs]
-    return max(arr),area,sinks,loads
+    arr=[max(rise[o],fall[o]) for o in net.outputs if o is not None]
+    return dict(delay=max(arr) if arr else 0.0,area=area,sinks=sinks,loads=loads,arrival=[max(r,f) for r,f in zip(rise,fall)])
+
+def timing(net,out_load=0.010,in_slew=0.05):
+    d=timing_detail(net,out_load,in_slew); return d['delay'],d['area'],d['sinks'],d['loads']
 
 # ---------------- building blocks (each returns (sum_net, carry_net)) ----------------
 def sz(base,size): return f"{base}_{size}"

@@ -17,3 +17,6 @@ gco_g.v
 aa_g.v
 allnand_g.v
 behav.v
+out/
+lean/*.olean
+lean/*.ilean
