@@ -1,0 +1,29 @@
+{
+ "DESIGN_NAME": "exp_f32_pipe_rsz",
+ "VERILOG_FILES": [
+  "dir::exp_f32_pipe_rsz.v"
+ ],
+ "PDK": "sky130A",
+ "STD_CELL_LIBRARY": "sky130_fd_sc_hd",
+ "CLOCK_PORT": "clk",
+ "CLOCK_PERIOD": 8.0,
+ "IO_DELAY_CONSTRAINT": 0,
+ "OUTPUT_CAP_LOAD": 10,
+ "FP_SIZING": "relative",
+ "FP_CORE_UTIL": 40,
+ "RUN_CTS": true,
+ "RUN_LINTER": false,
+ "RUN_EQY": false,
+ "RUN_MAGIC_DRC": false,
+ "RUN_KLAYOUT_XOR": false,
+ "RUN_LVS": false,
+ "RUN_IRDROP_REPORT": false,
+ "RUN_ANTENNA_REPAIR": false,
+ "RUN_FILL_INSERTION": false,
+ "RUN_HEURISTIC_DIODE_INSERTION": false,
+ "RUN_SPEF_EXTRACTION": true,
+ "RUN_SPEF_STA": true,
+ "SYNTH_ELABORATE_ONLY": true,
+ "CLOCK_UNCERTAINTY_CONSTRAINT": 0.1,
+ "RUN_KLAYOUT_DRC": false
+}
