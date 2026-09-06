@@ -19,7 +19,8 @@ for f in sorted(glob.glob(str(CELLS_DIR/'*_[124].json'))):
             tl=v.get('timing',[]); tl=[tl] if isinstance(tl,dict) else tl     # tie cells: no arcs
             arcs=[]
             for t in tl:
-                a={'pin':t['related_pin'],'sense':t.get('timing_sense')}
+                if not any(kk.startswith('cell_rise') for kk in t): continue      # setup/hold constraint groups
+                a={'pin':t['related_pin'],'sense':t.get('timing_sense') or 'positive_unate'}
                 for key in ('cell_rise','cell_fall','rise_transition','fall_transition'):
                     tb=[x for kk,x in t.items() if kk.startswith(key)][0]
                     a[key]=(np.array(tb['index_1'],float),np.array(tb['index_2'],float),np.array(tb['values'],float).reshape(len(tb['index_1']),-1))
@@ -47,6 +48,7 @@ class TT:
     def __xor__(s,o): return TT(s.v^o.v)
     def __invert__(s): return TT(MASK^s.v)
 def cell_func(cell,outpin,pinvals):
+    if cell.startswith('dfxtp'): return pinvals['D']                     # flip-flop: functionally D -> Q (combinational equivalence)
     expr=CELLS[cell]['out'][outpin]['func'].replace('!','~')
     expr=re.sub(r'\b([A-Z][A-Z0-9_]*)\b',r'P["\1"]',expr)
     v=eval(expr,{'P':pinvals})

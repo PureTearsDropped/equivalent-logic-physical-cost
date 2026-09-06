@@ -96,3 +96,15 @@ else
         bits,dec,dist=exp_spec(x); println(x," -> ",reinterpret(Float32,bits)," ref=",reference(x)," ",bits==reinterpret(UInt32,reference(x)) ? "OK" : "MISMATCH"," dist=",dist)
     end
 end
+function dump_all(path::String)
+    open(path, "w") do io
+        n = 0
+        for b in UInt32(0):UInt32(0xffffffff)
+            x = reinterpret(Float32, b); (isnan(x) || isinf(x)) && continue
+            (x > XHI || x < XLO || abs(x) < 2f0^-25) && continue
+            bits, dec, dist = exp_spec(x); write(io, b); write(io, bits); n += 1
+        end
+        println("wrote ", n, " pairs")
+    end
+end
+if length(ARGS) > 0 && ARGS[1] == "dumpall"; @time dump_all(ARGS[2]); end

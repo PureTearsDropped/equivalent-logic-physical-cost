@@ -25,7 +25,17 @@ c1,c2,c3,c4,c5,c6 = [c<<8 for c in CFAC]
 
 class Fx:
     """helper around a Net: nets with None = constant 0, ONE = constant 1 (a real net)"""
-    def __init__(self, net): self.net=net; self._one=None; self._uses=0; self._ones=set()
+    def __init__(self, net, pipe=False, clk=None):
+        self.net=net; self._one=None; self._uses=0; self._ones=set(); self.pipe=pipe; self.clk=clk; self.stage=1; self.net.stage_regs={}
+    def cut(self):
+        """advance to the next pipeline stage (registers are inserted by reg/regd from now on for the previous stage's signals)"""
+        self.stage+=1
+    def reg(self,n):
+        if not self.pipe or n is None or n in self._ones: return n
+        q=self.net.add('dfxtp_1',{'CLK':self.clk,'D':n})['Q']; self.net.insts[-1]['stage']=self.stage
+        self.net.stage_regs.setdefault(self.stage,[]).append(n); return q
+    def regd(self,d): return {w:self.reg(n) for w,n in d.items()}
+    def regl(self,l): return [self.reg(n) for n in l]
     def one(self):
         if self._one is None or self._uses>=32:
             self._one=self.net.add('conb_1',{})['HI']; self._uses=0; self._ones=getattr(self,'_ones',set()); self._ones.add(self._one)
@@ -77,9 +87,9 @@ class Fx:
 import time
 _T0=time.time()
 def _log(msg,net): print(f"[{time.time()-_T0:6.1f}s] {msg}: cells={len(net.insts)}",flush=True)
-def build_exp():
-    net=Net(16)                      # 32 primary inputs = bits of x
-    fx=Fx(net); X=list(range(32)); s=X[31]; e=X[23:31]; m=X[0:23]
+def build_exp(pipe=False):
+    net=Net(17)                      # inputs 0..31 = bits of x, 32 = clk (pipelined build)
+    fx=Fx(net,pipe,clk=32); X=list(range(32)); s=X[31]; e=X[23:31]; m=X[0:23]
     ONE=fx.one()
     # (b) shift amount sh' = e - 102 (5 bits) : e + 154 mod 256
     sa=fx.tree([(i,e[i]) for i in range(8)]+fx.const_bits(154),8)[:5]
@@ -100,8 +110,11 @@ def build_exp():
     u=fx.tree(ubits,35)
     nbits={b:u[20+b] for b in range(14) if u[20+b] is not None}            # n = floor(u)
     net.probes['u']={w:n for w,n in enumerate(u) if n is not None}; net.probes['n']=nbits
-    j=[nbits.get(b) for b in range(6)]; kn=[nbits.get(6+b) for b in range(8)]
     _log('u/n',net)
+    # ---- cut 1: S1 (decode, barrel, u tree) -> S2 (r tree)
+    fx.cut(); xf=fx.regd(xf); s=fx.reg(s); nbits=fx.regd(nbits)
+    A=[(w, fx.XOR(xf.get(w),s) if w in xf else s) for w in range(76)]
+    j=[nbits.get(b) for b in range(6)]; kn=[nbits.get(6+b) for b in range(8)]
     # (d) r = A + X0 + s − n·L mod 2^62 (68-grid, 62 columns). L bit i <-> 2^(i-80); n bit b: index b+i-12
     rows=[]; K1=0; NR=0
     for i in range(L.bit_length()):
@@ -118,6 +131,8 @@ def build_exp():
     r=fx.tree(rows,62); rb={w:n for w,n in enumerate(r) if n is not None}
     net.probes['r']=rb
     _log('r',net)
+    # ---- cut 2: S2 -> S3 (q, constant products)
+    fx.cut(); rb=fx.regd(rb); j=fx.regl(j); kn=fx.regl(kn)
     # (e) Estrin: q=r², cr_k = c_k·r, B=c2+cr3, Cq=(c4+cr5)+q·c6, q4=q², p = (1+cr1) + q·B + q4·Cq
     def resolve(bits,W=70):
         t=fx.tree(bits,W); return {w:n for w,n in enumerate(t) if n is not None}
@@ -128,14 +143,18 @@ def build_exp():
     q=resolve(fx.rowprod(rb,rb,70));                       net.probes['q']=q; _log('q',net)
     cr1=resolve(cprod(c1,rb)); cr3=resolve(cprod(c3,rb)); cr5=resolve(cprod(c5,rb))
     Bq=resolve([(w,n) for w,n in cr3.items()]+fx.const_bits(c2))
+    # ---- cut 3: S3 -> S4 (q², q·B, Cq)
+    fx.cut(); q=fx.regd(q); cr1=fx.regd(cr1); cr5=fx.regd(cr5); Bq=fx.regd(Bq); j=fx.regl(j); kn=fx.regl(kn)
     qB=resolve(fx.rowprod(q,Bq,70))
     qc6=resolve(cprod(c6,q))
     Cq=resolve([(w,n) for w,n in cr5.items()]+[(w,n) for w,n in qc6.items()]+fx.const_bits(c4))
     q4=resolve(fx.rowprod(keep(q,56),keep(q,56),70));      _log('q4',net)
-    q4C=resolve(fx.rowprod(keep(q4,56),keep(Cq,30),70))
+    # ---- cut 4: S4 -> S5 (q⁴·Cq, p; table in parallel)
+    fx.cut(); q4=fx.regd(keep(q4,56)); Cq=fx.regd(keep(Cq,30)); qB=fx.regd(qB); cr1=fx.regd(cr1); j=fx.regl(j); kn=fx.regl(kn)
+    q4C=resolve(fx.rowprod(q4,Cq,70))
     p=resolve([(w,n) for w,n in cr1.items()]+[(w,n) for w,n in qB.items()]+[(w,n) for w,n in q4C.items()]+[(68,ONE)])
     pb=p; net.probes['p']=pb; _log('p',net)
-    # (f) table T[j] (61 bits at F=60 -> index+8) via mux2 trees on j
+    # (f) table T[j] (61 bits at F=60 -> index+8) via mux2 trees on j  (S5, parallel with q⁴·Cq)
     tb={}
     for bit in range(61):
         vals=[(TBL[jj]>>bit)&1 for jj in range(NT)]
@@ -146,9 +165,13 @@ def build_exp():
             level=[fx.MUX(level[2*qq],level[2*qq+1],j[t]) for qq in range(len(level)//2)]
         tb[bit+8]=level[0]
     _log('table',net)
+    # ---- cut 5: S5 -> S6 (y = T·p)
+    fx.cut(); tb=fx.regd(tb); pb=fx.regd(pb); kn=fx.regl(kn)
     y=fx.tree(fx.rowprod(tb,pb,70),70); yb=y
     net.probes['T']=tb; net.probes['y']={w:n for w,n in enumerate(y) if n is not None}
     _log('y',net)
+    # ---- cut 6: S6 -> S7 (normalize, round, decide, exponent)
+    fx.cut(); yb=fx.regl(yb); kn=fx.regl(kn)
     # (g) normalize: hi = y[69], lo = ~y[69] & ~y[68]
     hi=yb[69]; lo=fx.AND(fx.INV(yb[69]),fx.INV(yb[68]))
     yn=[fx.MUX(fx.MUX(yb[w], yb[w-1] if w>=1 else None, lo), yb[w+1] if w+1<70 else None, hi) for w in range(69)]
@@ -180,7 +203,7 @@ def build_exp():
     return net
 
 if __name__=="__main__":
-    import time, pickle; t0=time.time(); net=build_exp(); buffer_high_fanout(net)
+    import time, pickle; t0=time.time(); net=build_exp(pipe=('pipe' in sys.argv)); buffer_high_fanout(net)
     print("cells:",len(net.insts),"build time %.0fs"%(time.time()-t0),flush=True)
     pickle.dump(net,open('/tmp/claude-1001/exp_net.pkl','wb'))
     from check_gates import check
@@ -188,17 +211,33 @@ if __name__=="__main__":
 
 def to_verilog_exp(net, name):
     """ports: input [31:0] x; output [31:0] y (sign bit 0); output decided"""
-    nm={i:f"x[{i}]" for i in range(32)}
+    nm={i:f"x[{i}]" for i in range(32)}; nm[32]="clk"
     outs=net.outputs
     for k in range(31):
         if outs[k] is not None: nm[outs[k]]=f"y[{k}]"
     if outs[32] is not None: nm[outs[32]]="decided"
-    wires=[f"n{i}" for i in range(32,net.nnets) if i not in nm]
-    for i in range(32,net.nnets): nm.setdefault(i,f"n{i}")
-    L=[f"module {name}(input [31:0] x, output [31:0] y, output decided);","  wire "+", ".join(wires)+";"]
+    wires=[f"n{i}" for i in range(34,net.nnets) if i not in nm]
+    for i in range(34,net.nnets): nm.setdefault(i,f"n{i}")
+    seq=any(i['cell'].startswith('dfxtp') for i in net.insts)
+    L=[f"module {name}(input [31:0] x, {'input clk, ' if seq else ''}output [31:0] y, output decided);","  wire "+", ".join(wires)+";"]
     for ii,inst in enumerate(net.insts):
         conns=[f".{p}({nm[q]})" for p,q in inst['pins'].items()]+[f".{p}({nm[q]})" for p,q in inst['outs'].items()]
         L.append(f"  sky130_fd_sc_hd__{inst['cell']} g{ii} ({', '.join(conns)});")
     ties=[f"y[{k}]" for k in range(32) if k==31 or outs[k] is None]
     for j,t in enumerate(ties): L.append(f"  sky130_fd_sc_hd__conb_1 tc{j} (.LO({t}), .HI());")
     L.append("endmodule"); return "\n".join(L)+"\n"
+
+def stage_report(net, setup=0.1):
+    """per-stage delay (cell-only NLDM): arrival at each stage's register D inputs (register outputs carry clk-to-Q)."""
+    from fullcell import timing_detail
+    saved=net.outputs; net.outputs=[o for o in saved if o is not None]
+    det=timing_detail(net); net.outputs=saved; arr=det['arrival']
+    rows=[]
+    for st in sorted(net.stage_regs):
+        rows.append((st, max(arr[n] for n in net.stage_regs[st]), len(net.stage_regs[st])))
+    last=max(st for st in net.stage_regs)+1 if net.stage_regs else 1
+    rows.append((last, det['delay'], 0))
+    for st,d,nreg in rows: print(f"  stage {st-1}: {d*1000+ (setup*1000 if nreg else 0):6.0f} ps  (registers at exit: {nreg})")
+    per=max(d for _,d,_ in rows)+setup
+    print(f"  min clock period ≈ {per*1000:.0f} ps  ({1000/per:.0f} MHz), total registers {sum(n for _,_,n in rows)}")
+    return per

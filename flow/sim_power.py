@@ -36,7 +36,9 @@ def simulate(d, nvec, timed, outdir):
     names = {nm for nm, _ in ins}; stim = []
     for nm, w in ins:
         if nm.endswith("N") and nm[:-1] + "P" in names: continue
-        if nm.endswith("P") and nm[:-1] + "N" in names:
+        if os.environ.get(f"STIM_{nm}"):                      # custom stimulus expression; `t` is a fresh $random
+            stim.append(f"t=$random(seed); {nm}={os.environ[f'STIM_{nm}']};")
+        elif nm.endswith("P") and nm[:-1] + "N" in names:
             stim.append(f"{nm}=$random(seed); t=$random(seed); {nm[:-1]}N=t & ~{nm};")
         else: stim.append(f"{nm}=$random(seed);")
     tb = f"""`timescale 1ns/1ps
