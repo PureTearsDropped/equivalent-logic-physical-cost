@@ -1,0 +1,29 @@
+[   0.0s] barrel: cells=258
+[   0.0s] u/n: cells=1893
+[   0.0s] r: cells=5587
+[   0.0s] q: cells=13846
+[   0.0s] q4: cells=36024
+[   0.0s] p: cells=40344
+[   0.0s] table: cells=42493
+[   0.1s] y: cells=53490
+  65536/526392936 mismatches=0 undecided=0 1s
+  13172736/526392936 mismatches=0 undecided=0 91s
+  26279936/526392936 mismatches=0 undecided=0 184s
+  39387136/526392936 mismatches=0 undecided=0 278s
+  52494336/526392936 mismatches=0 undecided=0 372s
+  65601536/526392936 mismatches=0 undecided=0 481s
+  78708736/526392936 mismatches=0 undecided=0 605s
+  91815936/526392936 mismatches=0 undecided=0 720s
+  104923136/526392936 mismatches=0 undecided=0 822s
+  118030336/526392936 mismatches=0 undecided=0 921s
+  131137536/526392936 mismatches=0 undecided=0 1023s
+  144244736/526392936 mismatches=0 undecided=0 1131s
+  157351936/526392936 mismatches=0 undecided=0 1239s
+  170459136/526392936 mismatches=0 undecided=0 1347s
+  183566336/526392936 mismatches=0 undecided=0 1455s
+  196673536/526392936 mismatches=0 undecided=0 1564s
+  209780736/526392936 mismatches=0 undecided=0 1675s
+  222887936/526392936 mismatches=0 undecided=0 1788s
+  235995136/526392936 mismatches=0 undecided=0 1904s
+  249102336/526392936 mismatches=0 undecided=0 2021s
+  262209536/526392936 mismatches=0 undecided=0 2139s

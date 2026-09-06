@@ -1,0 +1,30 @@
+[   0.0s] barrel: cells=258
+[   0.0s] u/n: cells=1893
+[   0.0s] r: cells=5642
+[   0.0s] q: cells=13901
+[   0.0s] q4: cells=36079
+[   0.0s] p: cells=40399
+[   0.0s] table: cells=42548
+[   0.1s] y: cells=53545
+  65536/264183400 mismatches=0 undecided=0 1s
+  13172736/264183400 mismatches=0 undecided=0 102s
+  26279936/264183400 mismatches=0 undecided=0 202s
+  39387136/264183400 mismatches=0 undecided=0 303s
+  52494336/264183400 mismatches=0 undecided=0 404s
+  65601536/264183400 mismatches=0 undecided=0 506s
+  78708736/264183400 mismatches=0 undecided=0 609s
+  91815936/264183400 mismatches=0 undecided=0 712s
+  104923136/264183400 mismatches=0 undecided=0 816s
+  118030336/264183400 mismatches=0 undecided=0 919s
+  131137536/264183400 mismatches=0 undecided=0 1022s
+  144244736/264183400 mismatches=0 undecided=0 1141s
+  157351936/264183400 mismatches=0 undecided=0 1274s
+  170459136/264183400 mismatches=0 undecided=0 1383s
+  183566336/264183400 mismatches=0 undecided=0 1486s
+  196673536/264183400 mismatches=0 undecided=0 1591s
+  209780736/264183400 mismatches=0 undecided=0 1697s
+  222887936/264183400 mismatches=0 undecided=0 1803s
+  235995136/264183400 mismatches=0 undecided=0 1912s
+  249102336/264183400 mismatches=0 undecided=0 2022s
+  262209536/264183400 mismatches=0 undecided=0 2134s
+EXHAUSTIVE: inputs=264183400 mismatches=0 undecided=0 time=2151s

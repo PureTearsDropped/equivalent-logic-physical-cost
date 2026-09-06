@@ -34,7 +34,9 @@ def simulate(d, nvec, timed, outdir):
     init = "".join(f"{nm}=0; " for nm, _ in ins)
     # signed-digit pairs (xP,xN): keep digits canonical (never both 1)
     names = {nm for nm, _ in ins}; stim = []
+    has_clk = "clk" in names
     for nm, w in ins:
+        if nm == "clk": continue
         if nm.endswith("N") and nm[:-1] + "P" in names: continue
         if os.environ.get(f"STIM_{nm}"):                      # custom stimulus expression; `t` is a fresh $random
             stim.append(f"t=$random(seed); {nm}={os.environ[f'STIM_{nm}']};")
@@ -45,10 +47,11 @@ def simulate(d, nvec, timed, outdir):
 module tb;
 {decl}  integer i, seed; reg [63:0] t; supply1 vpwr; supply0 vgnd;
   {top} dut({conn},.VPWR(vpwr),.VGND(vgnd));
+  {"always #(" + str(PERIOD/2) + ") clk = ~clk;" if has_clk else ""}
   initial begin
     {annotate}
     $dumpfile("{vcd}"); $dumpvars(0, dut);
-    seed=12345; {init}#{PERIOD};
+    seed=12345; {init}{"clk=0; " if has_clk else ""}#{PERIOD};
     for (i=0;i<{nvec};i=i+1) begin {" ".join(stim)} #{PERIOD}; end
     $finish;
   end

@@ -6,11 +6,11 @@ import fullcell as F
 from fullcell import *
 from exp_f32_gates import build_exp
 from fullcell import buffer_high_fanout
-def run(path, chunk=65536, limit=None):
+def run(path, chunk=65536, limit=None, start=0):
     net=build_exp(); buffer_high_fanout(net)
     order=topo(net); outs=net.outputs
     data=np.fromfile(path,dtype=np.uint32).reshape(-1,2)
-    if limit: data=data[:limit]
+    data=data[start:limit] if limit else data[start:]
     N=len(data); bad=0; baddec=0; t0=time.time(); done=0
     F.ROWS=chunk; F.MASK=(1<<chunk)-1
     for s in range(0,N,chunk):
@@ -35,4 +35,4 @@ def run(path, chunk=65536, limit=None):
         bad+=int((got!=want).sum()); baddec+=int((dec==0).sum()); done+=n
         if (s//chunk)%200==0: print(f"  {done}/{N} mismatches={bad} undecided={baddec} {time.time()-t0:.0f}s",flush=True)
     print(f"EXHAUSTIVE: inputs={N} mismatches={bad} undecided={baddec} time={time.time()-t0:.0f}s")
-if __name__=="__main__": run(sys.argv[1], limit=int(sys.argv[2]) if len(sys.argv)>2 else None)
+if __name__=="__main__": run(sys.argv[1], limit=int(sys.argv[2]) if len(sys.argv)>2 and sys.argv[2]!="-" else None, start=int(sys.argv[3]) if len(sys.argv)>3 else 0)
