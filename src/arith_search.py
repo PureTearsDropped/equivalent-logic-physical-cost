@@ -35,7 +35,7 @@ class Builder:
         Cells: and2 (generate / group propagate), xor2 (propagate / sum), a21o (group generate).
         Missing bits are constant 0 and are folded away. NOT covered by the Lean schedule theorem: checked exhaustively/randomly."""
         arr=self.arrivals(); self.tree_delay=max(arr[x] for k in self.cols for x in self.cols[k])
-        W=2*self.n; net=self.net; s=self.s
+        W=getattr(self,'W',2*self.n); net=self.net; s=self.s
         for k in range(W):
             while len(self.cols[k])>2: self.fa(k,self.order_by_arrival(self.cols[k])[:3])
         AND=lambda x,y: None if x is None or y is None else net.add(sz('and2',s),{'A':x,'B':y})['X']
@@ -69,8 +69,9 @@ class Builder:
     def ripple(self):
         """final carry-propagate: column by column, FA on 3 bits, HA on 2, pass 1."""
         arr=self.arrivals(); self.tree_delay=max(arr[x] for k in self.cols for x in self.cols[k])
-        P=[None]*(2*self.n)
-        for k in range(2*self.n):
+        W=getattr(self,'W',2*self.n)
+        P=[None]*W
+        for k in range(W):
             while len(self.cols[k])>3: self.fa(k,self.order_by_arrival(self.cols[k])[:3])
             b=self.cols[k]
             if len(b)==3: s,_=self.fa(k,list(b)); P[k]=s

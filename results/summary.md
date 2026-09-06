@@ -173,3 +173,46 @@ faster and 36 % lower energy at zero area cost; the standard flow is slower than
 still loses to Dadda + Kogge-Stone on delay at 2.3× the area, and its recoding logic toggles so much (999 toggles/op)
 that it uses 14× the energy; at 4 bits Booth is worse than the plain flow on every axis. OpenSTA's probabilistic power estimate is 14–33× above simulation at this
 size (it was 1.3–2.2× at 4 bits) — it is unusable as a ranking signal for deep reconvergent logic.
+
+## 7. Representation sweep: dot products Σₖ aₖ·bₖ (research branch)
+
+`src/rep_sweep.py`, 8-bit operands, K pairs, cells and2 / xor+and / xor2,xor2,a21o (size 1), cell-only NLDM STA.
+*binary*: every product is resolved to binary (compression tree + CPA), then the K numbers are added with a tree of
+CPAs. *carrysave*: all K partial-product sets go into one compression tree, one CPA at the end. *redundant*: the tree
+only — the result stays as two rows (no CPA), which is the form the total-arith signed-digit / carry-save datapaths keep.
+Every netlist checked on 2048 random vectors; the schedule is covered by `dot_product_correct` / `dot_product_redundant`
+in `lean/ArithEquiv.lean` (Kogge-Stone excepted).
+
+| K | representation | final adder | cells | area µm² | delay |
+|--:|---|---|--:|--:|--:|
+| 1 | binary = carrysave | ripple | 272 | 2022 | 3027 ps |
+| 1 | binary = carrysave | Kogge-Stone | 386 | 2770 | 2494 ps |
+| 1 | redundant | – | 218 | 1600 | 1440 ps |
+| 2 | binary | Kogge-Stone | 966 | 6893 | 3551 ps |
+| 2 | carrysave | Kogge-Stone | 724 | 5291 | 3195 ps |
+| 2 | redundant | – | 530 | 3939 | 2138 ps |
+| 4 | binary | ripple | 1278 | 9572 | 4229 ps |
+| 4 | binary | Kogge-Stone | 2144 | 15262 | 4609 ps |
+| 4 | carrysave | ripple | 1236 | 9256 | 4418 ps |
+| 4 | carrysave | Kogge-Stone | 1382 | 10217 | 3696 ps |
+| 4 | redundant | – | 1170 | 8741 | 2639 ps |
+| 8 | binary | ripple | 2626 | 19690 | 4831 ps |
+| 8 | binary | Kogge-Stone | 4518 | 32125 | 5787 ps |
+| 8 | carrysave | ripple | 2522 | 18909 | 5086 ps |
+| 8 | carrysave | Kogge-Stone | 2682 | 19963 | 4499 ps |
+| 8 | redundant | – | 2452 | 18363 | 3306 ps |
+
+Same function, three representations, measured in time and gates: at K = 4 the carry-save representation is 20 % faster
+and 33 % smaller than binary (both with Kogge-Stone), and keeping the result redundant is 43 % faster and 43 % smaller.
+A tree of Kogge-Stone adders (binary, K = 8) is *slower* than ripple — the prefix networks' fan-out compounds — while one
+Kogge-Stone at the end of a carry-save tree is the best resolved form. The representation, not the gate-level structure,
+is the first-order variable.
+
+### What Lean produces
+
+- `lean/ArithEquiv.lean` (core Lean 4): the bit-level identity for any width — every FA/HA schedule preserves the weighted
+  sum (`schedule_preserves`), partial products are the product (`ppAll_value`), merged partial products are the dot
+  product (`ppDot_value`), and the two-row redundant output is exact (`dot_product_redundant`).
+- `lean/mathlib/RepDemo.lean` (Mathlib): `ring_nf` rewrites the array order and the Dadda grouping to one canonical
+  polynomial, i.e. Lean itself *outputs* the representation-independent form and decides equality of any two arithmetic
+  decompositions automatically — at any width, where truth tables are unavailable.

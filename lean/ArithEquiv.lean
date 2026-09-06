@@ -183,4 +183,37 @@ theorem multiplier_correct_general (a b p : List Bool)
   rw [ppAll_value, outList_value] at h
   simpa using h.symm
 
+/-! ## Dot products and redundant (two-row) outputs -/
+
+/-- partial products of several operand pairs, all at weight offset `w`, concatenated into one column set -/
+def ppDot (w : Nat) : List (List Bool × List Bool) → List (Nat × Bool)
+  | [] => []
+  | (a, b) :: t => ppAll w a b ++ ppDot w t
+
+/-- the dot product Σ bval aₖ · bval bₖ -/
+def dot : List (List Bool × List Bool) → Nat
+  | [] => 0
+  | (a, b) :: t => bval a * bval b + dot t
+
+theorem ppDot_value (w : Nat) (ps : List (List Bool × List Bool)) : wval (ppDot w ps) = 2 ^ w * dot ps := by
+  induction ps with
+  | nil => simp [ppDot, wval, dot]
+  | cons p t ih => cases p; simp [ppDot, wval_append, ppAll_value, ih, dot, Nat.mul_add]
+
+/-- **Dot product, resolved to binary.** Any schedule from the merged partial products to one bit per
+    weight computes Σ aₖ·bₖ (carry-save accumulation with a single final carry-propagate adder). -/
+theorem dot_product_correct (ps : List (List Bool × List Bool)) (p : List Bool)
+    (sch : Schedule (ppDot 0 ps) (outList 0 p)) : bval p = dot ps := by
+  have h := schedule_preserves sch
+  rw [ppDot_value, outList_value] at h
+  simpa using h.symm
+
+/-- **Redundant output.** A schedule that stops at two rows `r₀`, `r₁` (no final adder) represents the
+    dot product as `bval r₀ + bval r₁`: the value is exact, only the representation is redundant. -/
+theorem dot_product_redundant (ps : List (List Bool × List Bool)) (r₀ r₁ : List Bool)
+    (sch : Schedule (ppDot 0 ps) (outList 0 r₀ ++ outList 0 r₁)) : bval r₀ + bval r₁ = dot ps := by
+  have h := schedule_preserves sch
+  rw [ppDot_value, wval_append, outList_value, outList_value] at h
+  simpa using h.symm
+
 end ArithEquiv
