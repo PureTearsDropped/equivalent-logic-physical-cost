@@ -255,3 +255,18 @@ contract to borrow-save (the consumer tolerates the redundant zero (1,1)) gives 
 area and 2.3× less energy. The canonical-per-step compressor (18 gates, 8 of them the rail subtraction) is
 the signed-digit analogue of resolving carries at every step; moving canonicalisation to the boundary is the
 same lesson as carry-save. Wires hurt the prefix networks most (canon_ks: 4769 → 6915 ps).
+
+FPGA cross-check (yosys 0.62 `synth_xilinx` xc7, abc default; LUT count and LUT depth only — no place and route):
+
+| design | LUTs | LUT depth |
+|---|--:|--:|
+| sd_mult10 (total-arith, as emitted) | 4182 | 25 |
+| ours, canonical ripple | 2014 | 31 |
+| ours, canonical borrow-lookahead | 3482 | 24 |
+| ours, borrow-save Kogge-Stone | 2727 | 19 |
+| ours, tree only (four rows) | 2230 | 11 |
+
+On the FPGA target the gain is smaller and contract-dependent: same contract, either half the LUTs at 6 more
+levels (ripple canonicaliser) or 17 % fewer LUTs at one level less (borrow-lookahead); borrow-save output gives
+35 % fewer LUTs and 24 % fewer levels. abc cannot collapse a 40-input function, so structure survives here,
+unlike the 4×4 case.
