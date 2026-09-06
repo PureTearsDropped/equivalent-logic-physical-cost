@@ -78,6 +78,16 @@ loses at 4 bits (fan-out), gains 12 % at 8 and 37 % at 16. Placed and routed at 
 3505 ps (same 600 cells, −36 % energy) → Dadda + Kogge-Stone 3120 ps; the standard flow (3 ns target) is
 3620 ps at 3.7× the area and 6.3× the energy; with the flow's Booth option it reaches 3408 ps / 6838 µm² / 10670 fJ, still behind Dadda + Kogge-Stone on delay at 2.3× area and 14× energy (at 4 bits Booth is worse than the plain flow on every axis). Tables in `results/summary.md` §6.
 
+### Plugging into total-arith's signed-digit multiplier
+
+total-arith-hardware's `sd_mult10` ((p,n) digit encoding) was imported (4742 cells after constant folding) and
+compared on sky130 with a two-rail borrow-save multiplier built by the same generator (`src/sd_tree.py`, proofs in
+`lean/SignedDigit.lean`). Placed and routed, glitch-inclusive: under the same contract (canonical digits out) 8 %
+faster at 2.8× less area and 2.5× less energy; allowing borrow-save output, 2.1× faster at 2.5× less area
+(4166 ps / 11241 µm² / 13.8 pJ vs 8659 ps / 27757 µm² / 32.3 pJ). Canonicalising every step (8 of the compressor's
+18 gates) costs what resolving carries every step costs; moving it to the boundary is the carry-save lesson again.
+Tables in `results/summary.md` §8.
+
 ## Retractions
 
 Intermediate claims that were withdrawn are kept here rather than deleted.

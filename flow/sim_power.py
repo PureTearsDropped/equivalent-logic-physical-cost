@@ -8,26 +8,46 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from paths import FLOW_RESULTS, PDK_VERILOG, run_sta
 from summary import DESIGNS, load
 from power import power_tcl, parse_power, PERIOD
-def toggles(vcd_path):
+def toggles(vcd_path, input_names=("a", "b")):
     vcd = open(vcd_path).read(); ids = {}
     for m in re.finditer(r"\$var\s+\w+\s+\d+\s+(\S+)\s+(\S+)", vcd): ids.setdefault(m.group(1), m.group(2))
     cnt = Counter(re.findall(r"^[01xz](\S+)$", vcd.split("$enddefinitions")[1], re.M))
-    return sum(c for i, c in cnt.items() if not ids.get(i, "").startswith(("a", "b")))
+    return sum(c for i, c in cnt.items() if ids.get(i, "").split("[")[0] not in input_names)
+def ports_of(pnl):
+    """(inputs, outputs) as [(name, width)] from the powered netlist header (VPWR/VGND excluded)."""
+    src = open(pnl).read(); hdr = re.search(r"module\s+\w+\s*\((.*?)\);", src, re.S).group(1)
+    body = src[:src.find("endmodule")]
+    ins, outs = [], []
+    for d, w, nm in re.findall(r"^\s*(input|output)\s+(?:\[(\d+):0\]\s+)?(\w+)\s*;", body, re.M):
+        (ins if d == "input" else outs).append((nm, int(w) + 1 if w else 1))
+    return ins, outs
+
 def simulate(d, nvec, timed, outdir):
     R = FLOW_RESULTS / d
     pnl = glob.glob(str(R / "*.pnl.v"))[0]; sdf = glob.glob(str(R / "*.sdf"))[0]
     top = re.search(r"module\s+(\w+)", open(pnl).read()).group(1)
+    ins, outs = ports_of(pnl)
     tag = "timed" if timed else "zerodelay"; vcd = f"{outdir}/{d}_{tag}.vcd"
     annotate = f'$sdf_annotate("{sdf}", dut);' if timed else ""
+    decl = "".join(f"  reg [{w-1}:0] {nm};\n" for nm, w in ins) + "".join(f"  wire [{w-1}:0] {nm};\n" for nm, w in outs)
+    conn = ", ".join(f".{nm}({nm})" for nm, _ in ins + outs)
+    init = "".join(f"{nm}=0; " for nm, _ in ins)
+    # signed-digit pairs (xP,xN): keep digits canonical (never both 1)
+    names = {nm for nm, _ in ins}; stim = []
+    for nm, w in ins:
+        if nm.endswith("N") and nm[:-1] + "P" in names: continue
+        if nm.endswith("P") and nm[:-1] + "N" in names:
+            stim.append(f"{nm}=$random(seed); t=$random(seed); {nm[:-1]}N=t & ~{nm};")
+        else: stim.append(f"{nm}=$random(seed);")
     tb = f"""`timescale 1ns/1ps
 module tb;
-  reg [3:0] a,b; wire [7:0] p; integer i, seed; supply1 vpwr; supply0 vgnd;
-  {top} dut(.a(a),.b(b),.p(p),.VPWR(vpwr),.VGND(vgnd));
+{decl}  integer i, seed; reg [63:0] t; supply1 vpwr; supply0 vgnd;
+  {top} dut({conn},.VPWR(vpwr),.VGND(vgnd));
   initial begin
     {annotate}
     $dumpfile("{vcd}"); $dumpvars(0, dut);
-    seed=12345; a=0; b=0; #{PERIOD};
-    for (i=0;i<{nvec};i=i+1) begin a=$random(seed); b=$random(seed); #{PERIOD}; end
+    seed=12345; {init}#{PERIOD};
+    for (i=0;i<{nvec};i=i+1) begin {" ".join(stim)} #{PERIOD}; end
     $finish;
   end
 endmodule
@@ -45,8 +65,9 @@ if __name__ == "__main__":
     print(f"{'design':18s} {'delay':>7s} {'E_prob':>8s} {'E_vcd':>8s} {'ratio':>6s} {'toggles/op':>10s} {'glitch%':>8s}")
     for d in (sys.argv[2:] or DESIGNS):
         r = load(d)
-        vcd = simulate(d, nvec, True, outdir); tg = toggles(vcd)
-        tz = toggles(simulate(d, nvec, False, outdir))
+        pnl = glob.glob(str(FLOW_RESULTS / d / "*.pnl.v"))[0]; innames = tuple(nm for nm, _ in ports_of(pnl)[0])
+        vcd = simulate(d, nvec, True, outdir); tg = toggles(vcd, innames)
+        tz = toggles(simulate(d, nvec, False, outdir), innames)
         ep, _ = parse_power(run_sta(power_tcl(d, "set_power_activity -input -activity 0.5 -duty 0.5")))
         ev, _ = parse_power(run_sta(power_tcl(d, f"read_power_activities -scope tb/dut -vcd {vcd}")))
         print(f"{d:18s} {r['arrival_ps']:6.0f}ps {ep*1e15:7.1f}fJ {ev*1e15:7.1f}fJ {ev/ep:6.2f} {tg/nvec:10.1f} {(1-tz/tg)*100:7.0f}%", flush=True)

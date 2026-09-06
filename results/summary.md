@@ -216,3 +216,42 @@ is the first-order variable.
 - `lean/mathlib/RepDemo.lean` (Mathlib): `ring_nf` rewrites the array order and the Dadda grouping to one canonical
   polynomial, i.e. Lean itself *outputs* the representation-independent form and decides equality of any two arithmetic
   decompositions automatically — at any width, where truth tables are unavailable.
+
+## 8. Signed-digit (total-arith) multiplier, 10 digits (research branch)
+
+`src/sd_tree.py`. Digits are (p,n) pairs with value p − n (total-arith-hardware's encoding). `sd10_tah` is
+total-arith-hardware's `sd_mult10.sv` (generic gates, auto-emitted) imported, constant-folded (≈2 100 of its
+11 670 assigns were `x & 1'b0`, `x ^ 1'b0`, …) and mapped 1:1 onto sky130 and2/or2/xor2/inv. Ours keeps two
+rails (P: xP·yP + xN·yN, N: xP·yN + xN·yP, merged with or2 — exact for canonical inputs), compresses each
+rail with a Dadda schedule, and then either stops (borrow-save, redundant), resolves each rail (Kogge-Stone)
+or canonicalises (their ripple compressor; or two borrow-lookahead subtractors P−N / N−P sharing the
+propagate signals, selected by the sign). Lean: `lean/SignedDigit.lean` — any pair of rail schedules
+preserves the signed value, the digit-product identity, and their canonical 3:2 compressor is exact and
+canonical (64-case decide). The borrow-lookahead canonicaliser is not yet in Lean (random-checked only).
+All designs checked on 1024 random canonical digit vectors.
+
+Cell-only (NLDM):
+
+| design | output contract | cells | area µm² | delay |
+|---|---|--:|--:|--:|
+| sd_mult10 (total-arith, folded) | canonical (zP,zN) | 4742 | 27659 | 7320 ps |
+| ours, canonical ripple | canonical (zP,zN) | 1432 | 9819 | 6594 ps |
+| ours, borrow-lookahead + select | canonical (zP,zN) | 2085 | 14420 | 4769 ps |
+| ours, Kogge-Stone per rail | borrow-save (zP,zN), may contain (1,1) | 1610 | 11228 | 3141 ps |
+| ours, tree only | four rows (two per rail) | 1140 | 7965 | 1946 ps |
+
+Placed and routed (LibreLane, SPEF) with glitch-inclusive energy (8192 random canonical vectors, 200 MHz):
+
+| design | arrival | cells | logic area µm² | wire µm | E_vcd / op | glitch |
+|---|--:|--:|--:|--:|--:|--:|
+| sd10_tah (total-arith sd_mult10) | 8659 ps | 4769 | 27757 | 53635 | 32.3 pJ | 41 % |
+| sd10_canon (ours, canonical ripple) | 7989 ps | 1436 | 9834 | 26254 | 13.1 pJ | 32 % |
+| sd10_canon_ks (ours, canonical, borrow-lookahead) | 6915 ps | 2086 | 14423 | 43504 | 24.2 pJ | 31 % |
+| **sd10_bs_ks** (ours, borrow-save, Kogge-Stone per rail) | **4166 ps** | 1614 | 11241 | 30630 | **13.8 pJ** | 27 % |
+
+Same contract as sd_mult10 (canonical digits out): 8 % faster at 2.8× less area and 2.5× less energy with the
+ripple canonicaliser, or 20 % faster at 1.9× less area and 1.3× less energy with the parallel one. Relaxing the
+contract to borrow-save (the consumer tolerates the redundant zero (1,1)) gives 2.1× the speed at 2.5× less
+area and 2.3× less energy. The canonical-per-step compressor (18 gates, 8 of them the rail subtraction) is
+the signed-digit analogue of resolving carries at every step; moving canonicalisation to the boundary is the
+same lesson as carry-save. Wires hurt the prefix networks most (canon_ks: 4769 → 6915 ps).

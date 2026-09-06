@@ -132,12 +132,14 @@ def sd_multiplier(n, pp_mode='merged', final='none', cells=('and2','xor+and','xo
         Bpn=prefix(Gpn); Bnp=prefix(Gnp)                  # Bpn[k] = borrow out of columns 0..k for P-N
         sign=Bpn[W-1]                                       # P < N
         zP=[];zN=[]
+        def diff(t,b):   # d = (p xor n) xor b = (not T) xor b ; T None = constant true, b None = constant 0
+            if t is None: return b                       # T true: d = b
+            if b is None: return INV(t)                  # b = 0: d = not T
+            return XNOR(t,b)
+        nsign=None if sign is None else INV(sign)
         for k in range(W):
-            bin_=Bpn[k-1] if k>0 else None; bin2=Bnp[k-1] if k>0 else None
-            dk=XNOR(T[k],bin_) if not (T[k] is None and bin_ is None) else None   # d = p^n^b = xnor(T,b)
-            dk2=XNOR(T[k],bin2) if not (T[k] is None and bin2 is None) else None
-            zP.append(None if sign is None else (dk if False else ANDn(dk,INV(sign)))) if sign is not None else zP.append(dk)
-            zN.append(ANDn(dk2,sign))
+            dk=diff(T[k],Bpn[k-1] if k>0 else None); dk2=diff(T[k],Bnp[k-1] if k>0 else None)
+            zP.append(dk if sign is None else ANDn(dk,nsign)); zN.append(ANDn(dk2,sign))
         net.outputs=zP+zN; net.sd=True; net.n_in=n; net.n_out=W; return net
     net.outputs=zP+zN; net.sd=True; net.n_in=n; net.n_out=W; return net
 
@@ -178,3 +180,26 @@ if __name__=="__main__":
         for final,desc in (('none','4 rows (2 per rail), no CPA'),('ripple','borrow-save (zP,zN), ripple per rail'),('ks','borrow-save (zP,zN), Kogge-Stone per rail'),('canon','canonical (zP,zN), canonical ripple'),('canon_ks','canonical (zP,zN), borrow-lookahead + select')):
             net=sd_multiplier(n,pp_mode,final); check_sd(net); d,a=timing_any(net)
             print(f"{'ours '+pp_mode+' / '+final:44s} {len(net.insts):6d} {a:7.0f} {d*1000:6.0f}ps  {desc}",flush=True)
+
+# ------------------------------------------------------------------ Verilog export for SD nets (xP,xN,yP,yN -> zP,zN)
+def to_verilog_sd(net, name):
+    n=net.n_in; W=net.n_out
+    L=[f"module {name}(input [{n-1}:0] xP, input [{n-1}:0] xN, input [{n-1}:0] yP, input [{n-1}:0] yN, output [{W-1}:0] zP, output [{W-1}:0] zN);"]
+    nm={}
+    for k in range(n): nm[k]=f"xP[{k}]"; nm[n+k]=f"xN[{k}]"; nm[2*n+k]=f"yP[{k}]"; nm[3*n+k]=f"yN[{k}]"
+    outs=net.outputs; ties=[]
+    for k in range(W):
+        for r,o in (("zP",outs[k]),("zN",outs[W+k])):
+            if o is None: ties.append(f"{r}[{k}]")
+            elif o in nm: L.append(f"  // {r}[{k}] shares net {nm[o]}"); ties.append((f"{r}[{k}]",nm[o]))
+            else: nm[o]=f"{r}[{k}]"
+    wires=[f"n{i}" for i in range(4*n,net.nnets) if i not in nm]
+    for i in range(4*n,net.nnets): nm.setdefault(i,f"n{i}")
+    if wires: L.append("  wire "+", ".join(wires)+";")
+    for ii,inst in enumerate(net.insts):
+        conns=[f".{p}({nm[x]})" for p,x in inst['pins'].items()]+[f".{p}({nm[x]})" for p,x in inst['outs'].items()]
+        L.append(f"  sky130_fd_sc_hd__{inst['cell']} g{ii} ({', '.join(conns)});")
+    for j,t in enumerate(ties):
+        if isinstance(t,tuple): L.append(f"  sky130_fd_sc_hd__buf_1 tb{j} (.A({t[1]}), .X({t[0]}));")
+        else: L.append(f"  sky130_fd_sc_hd__conb_1 tc{j} (.LO({t}), .HI());")
+    L.append("endmodule"); return "\n".join(L)+"\n"
