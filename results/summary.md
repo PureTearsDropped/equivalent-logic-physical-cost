@@ -108,3 +108,7 @@ Post-layout (LibreLane, SPEF) and glitch-inclusive energy (SDF simulation, 32768
 `dadda_xa` dominates every other design on all three axes: versus the standard flow's fastest result it is
 17 % faster, 4.3× smaller and uses 8× less energy per operation; versus the array with the same cells it is
 27 % faster and 25 % lower energy at equal area.
+
+Phase 2 (instance-level resize + duplicate, cell-only STA) on top of Dadda buys another 5–7 % for 6–17 % area
+(dadda_nand9: 1379 → 1284 ps at +6 %; dadda_xa: 1463 → 1402 ps at +17 %) — the same modest ratio as before.
+The schedule is where the big lever is; sizing and duplication remain second-order.

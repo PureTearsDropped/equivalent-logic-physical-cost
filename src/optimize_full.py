@@ -51,25 +51,26 @@ def phase2(net,rank='gain',steps=60,max_area=None):
     verify(cur)
     return cur,hist
 
-t0=time.time()
-start={**{f'pp{i}':('nand+inv',1) for i in range(16)},**{f'ha{i}':('nand5',1) for i in range(4)},**{f'fa{i}':('nand9',1) for i in range(8)}}
-results={}
-for rank in ('gain','eff'):
-    ch,h1=phase1(dict(start),rank=rank)
-    net=build(ch); verify(net)
-    print(f"\n[{rank}] phase1: {len(h1)-1} moves  {h1[0][0]*1000:.0f}->{h1[-1][0]*1000:.0f}ps  area {h1[0][1]:.0f}->{h1[-1][1]:.0f}   ({time.time()-t0:.0f}s)")
-    print("   choices:", {k:v for k,v in ch.items() if v!=start[k]})
-    net2,h2=phase2(net,rank=rank)
-    print(f"[{rank}] phase2: {len(h2)-1} moves  {h2[0][0]*1000:.0f}->{h2[-1][0]*1000:.0f}ps  area {h2[0][1]:.0f}->{h2[-1][1]:.0f}   ({time.time()-t0:.0f}s)")
-    print("   moves:", ", ".join(m for _,_,m in h2[1:10]),"...")
-    # Pareto trace of combined history
-    hist=h1+h2[1:]
-    for tgt in (450,500,550,600,700,800,1000):
-        pts=[h for h in hist if h[1]<=tgt]
-        if pts: print(f"   area<={tgt}: {min(p[0] for p in pts)*1000:.0f}ps")
-    results[rank]=(net2,hist,ch)
-    nm=f"full_{rank}"; open(f"{nm}.v","w").write(to_verilog(net2,nm)); s=sta_delay(f"{nm}.v",nm)
-    print(f"   final: cells={len(net2.insts)} area={h2[-1][1]:.0f} model={h2[-1][0]*1000:.0f}ps OpenSTA={s*1000:.0f}ps")
-    # also export the point at area<=600 and <=550 for P&R
-    json.dump([(d,a,m) for d,a,m in hist],open(f"{nm}_hist.json","w"))
-print("done",time.time()-t0)
+if __name__=='__main__':
+    t0=time.time()
+    start={**{f'pp{i}':('nand+inv',1) for i in range(16)},**{f'ha{i}':('nand5',1) for i in range(4)},**{f'fa{i}':('nand9',1) for i in range(8)}}
+    results={}
+    for rank in ('gain','eff'):
+        ch,h1=phase1(dict(start),rank=rank)
+        net=build(ch); verify(net)
+        print(f"\n[{rank}] phase1: {len(h1)-1} moves  {h1[0][0]*1000:.0f}->{h1[-1][0]*1000:.0f}ps  area {h1[0][1]:.0f}->{h1[-1][1]:.0f}   ({time.time()-t0:.0f}s)")
+        print("   choices:", {k:v for k,v in ch.items() if v!=start[k]})
+        net2,h2=phase2(net,rank=rank)
+        print(f"[{rank}] phase2: {len(h2)-1} moves  {h2[0][0]*1000:.0f}->{h2[-1][0]*1000:.0f}ps  area {h2[0][1]:.0f}->{h2[-1][1]:.0f}   ({time.time()-t0:.0f}s)")
+        print("   moves:", ", ".join(m for _,_,m in h2[1:10]),"...")
+        # Pareto trace of combined history
+        hist=h1+h2[1:]
+        for tgt in (450,500,550,600,700,800,1000):
+            pts=[h for h in hist if h[1]<=tgt]
+            if pts: print(f"   area<={tgt}: {min(p[0] for p in pts)*1000:.0f}ps")
+        results[rank]=(net2,hist,ch)
+        nm=f"full_{rank}"; open(f"{nm}.v","w").write(to_verilog(net2,nm)); s=sta_delay(f"{nm}.v",nm)
+        print(f"   final: cells={len(net2.insts)} area={h2[-1][1]:.0f} model={h2[-1][0]*1000:.0f}ps OpenSTA={s*1000:.0f}ps")
+        # also export the point at area<=600 and <=550 for P&R
+        json.dump([(d,a,m) for d,a,m in hist],open(f"{nm}_hist.json","w"))
+    print("done",time.time()-t0)
