@@ -270,3 +270,24 @@ On the FPGA target the gain is smaller and contract-dependent: same contract, ei
 levels (ripple canonicaliser) or 17 % fewer LUTs at one level less (borrow-lookahead); borrow-save output gives
 35 % fewer LUTs and 24 % fewer levels. abc cannot collapse a 40-input function, so structure survives here,
 unlike the 4×4 case.
+
+## 9. Binary {0,1} vs signed-digit {−1,0,+1} at equal numeric range (research branch)
+
+`src/signed_binary.py`: two's-complement multiplier (Baugh–Wooley partial products, Dadda tree, Kogge-Stone), 11 bits
+(range ±1024 ≥ the 10-digit signed-digit range ±1023), cell-only NLDM STA, checked on 2048 random signed vectors.
+
+| design | output | cells | area µm² | delay |
+|---|---|--:|--:|--:|
+| binary 11×11, Dadda + Kogge-Stone | two's complement | 770 | 5485 | 2997 ps |
+| binary 11×11, Dadda + ripple | two's complement | 564 | 4129 | 4368 ps |
+| binary 11×11, tree only | carry-save (two rows) | 484 | 3505 | 1789 ps |
+| signed-digit 10 digits, two rails, Kogge-Stone per rail (§8) | borrow-save (zP,zN) | 1610 | 11228 | 3141 ps |
+| signed-digit 10 digits, canonical ripple (§8) | canonical digits | 1432 | 9819 | 6594 ps |
+| signed-digit 10 digits, tree only (§8) | four rows | 1140 | 7965 | 1946 ps |
+| total-arith sd_mult10 (§8) | canonical digits | 4742 | 27659 | 7320 ps |
+
+At equal range the binary multiplier costs about half the cells and area of the two-rail signed-digit one at the same
+delay (2997 vs 3141 ps), and 2.2× less delay than the canonical-output signed-digit design at 1.8× less area. Binary
+carry-save (tree only) gives the same carry-free accumulation as signed-digit borrow-save at 0.44× the area. What the
+signed-digit form buys is representational: negation by wiring, symmetric digits, and total-arith's flag semantics
+(sign-unknown, structural zero) — not speed or area.
