@@ -331,3 +331,7 @@ drops 56×. For deep arithmetic on this process, pipelining is first an energy m
 throughput measure. (*The zero-delay reference simulation races at the clock edge and is not a valid glitch
 baseline for clocked designs; the timed toggle count is the measured quantity.)
 OpenSTA's probabilistic activity propagation is meaningless at this depth (it reports 2×10¹⁸ fJ).
+
+The combinational design with the OpenROAD resizer enabled (40 ns target) was attempted three times and was
+killed each time by the machine's memory watchdog during `repair_timing` (the 7-stage pipelined + resizer run,
+which did complete, gained nothing). Not pursued further.
