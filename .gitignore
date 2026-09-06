@@ -21,3 +21,4 @@ out/
 lean/*.olean
 lean/*.ilean
 .claude/
+flow/designs/*/run.log

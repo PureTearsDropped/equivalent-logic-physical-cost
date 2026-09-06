@@ -9,6 +9,9 @@ OpenROAD/LibreLane の配置配線、SDF 付きゲートレベルシミュレー
 
 [English README](README.en.md) · 結果表の全文は [results/summary.md](results/summary.md)
 
+v1.1.0 では算術レベル(Lean で正しさを保証した圧縮スケジュールと Kogge-Stone、表現の掃引、signed-digit との比較)と、
+全入力で正しい丸めを証明した f32 exp の配置配線・パイプライン化・エネルギーまで含む。目次は下の各節。
+
 ## 何が入っているか
 
 - **タイミングモデル**(`src/`): Liberty の NLDM 表引き(入力遷移 × 出力容量)とスルー伝播を、

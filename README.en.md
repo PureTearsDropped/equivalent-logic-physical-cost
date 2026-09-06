@@ -10,6 +10,9 @@ gate-level simulation, to measure how far a whole-DAG timing-driven optimizer ac
 
 [日本語 README](README.md) · full tables in [results/summary.md](results/summary.md)
 
+v1.1.0 adds the arithmetic level (Lean-certified compression schedules and Kogge-Stone, a representation sweep, the
+signed-digit comparison) and a correctly rounded float32 exp proved on all inputs, placed and routed, pipelined, with energy.
+
 ## Contents
 
 - **Timing model** (`src/`): NLDM table lookup (input slew × output load) with slew propagation,

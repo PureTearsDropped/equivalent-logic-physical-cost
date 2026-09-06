@@ -2,7 +2,7 @@ cff-version: 1.2.0
 title: "equivalent-logic-physical-cost"
 message: "If you use this repository, please cite it using this metadata."
 type: software
-version: v1.0.0
+version: v1.1.0
 date-released: 2026-09-06
 authors:
   - name: "PureTearsDropped"
@@ -34,6 +34,10 @@ keywords:
   - power estimation
   - glitch power
   - exact multiplier
+  - Lean 4
+  - carry-save
+  - correctly rounded exp
+  - pipelining
 identifiers:
   - type: doi
     value: "10.5281/zenodo.22486589"
