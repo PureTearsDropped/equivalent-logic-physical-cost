@@ -88,6 +88,16 @@ faster at 2.8× less area and 2.5× less energy; allowing borrow-save output, 2.
 18 gates) costs what resolving carries every step costs; moving it to the boundary is the carry-save lesson again.
 Tables in `results/summary.md` §8.
 
+### Correctly rounded float32 exp in hardware (2026-09-06)
+
+The Ziv-style correct rounding of the cuda library ported to hardware: 64-entry table, degree-6 Estrin in 60-bit fixed
+point, Ziv exit, no fallback. The spec model is correct on all 526,392,936 in-range float32 inputs against MPFR
+(0 undecided); the gate netlist matches it on all of them. Routed: combinational 64.4 ns / 447k µm², 7 stages 9.6 ns,
+**15 stages 6.46 ns (155 MHz) / 482k µm²**, everything-to-the-standard-flow 6.99 ns / 710k µm². OpenROAD's resizer
+achieved nothing (1,137 gates upsized, then gave up); placement bought 10 %, splitting the multiplies 33 %.
+**Energy: 4,952 pJ per operation combinational (80 % glitches) vs 318 pJ pipelined (15× less)** — at this depth
+pipelining is first of all an energy measure. Details in `results/summary.md` §10, code in `transcend/`.
+
 ## Retractions
 
 Intermediate claims that were withdrawn are kept here rather than deleted.

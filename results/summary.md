@@ -316,3 +316,18 @@ Per-stage post-layout times of the 15-stage design: compression-tree stages 6.1�
 exit 4.2 + 5.9 ns. Placement alone bought 10 %; the resizer nothing; splitting the multiplies bought 33 %. Handing the
 whole design to the standard flow gives a design 8 % slower and 47 % larger than the hand-structured 1× netlist.
 Existing gate-level exp in total-arith-hardware (not correctly rounded): 270k gates, depth 791.
+
+Energy per operation (routed netlist + SPEF, SDF-annotated gate-level simulation, in-range random float32 inputs,
+VCD read into OpenSTA):
+
+| design | input period / clock | toggles per op (timed) | glitch share | energy per op |
+|---|---|--:|--:|--:|
+| combinational exp (64.4 ns latency) | 80 ns (settled) | 866,591 | 80 % | **4,952 pJ** |
+| 15-stage pipeline | 7 ns clock (incl. clock tree and 2,207 flops) | 15,528 | n/a* | **318 pJ** |
+
+Pipelining divides the energy per operation by 15.5: the registers stop glitches from propagating through the
+64 ns combinational depth (each stage sees settled inputs once per cycle), so the toggle count per operation
+drops 56×. For deep arithmetic on this process, pipelining is first an energy measure and only second a
+throughput measure. (*The zero-delay reference simulation races at the clock edge and is not a valid glitch
+baseline for clocked designs; the timed toggle count is the measured quantity.)
+OpenSTA's probabilistic activity propagation is meaningless at this depth (it reports 2×10¹⁸ fJ).

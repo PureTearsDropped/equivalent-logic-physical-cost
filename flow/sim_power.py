@@ -9,10 +9,23 @@ from paths import FLOW_RESULTS, PDK_VERILOG, run_sta
 from summary import DESIGNS, load
 from power import power_tcl, parse_power, PERIOD
 def toggles(vcd_path, input_names=("a", "b")):
-    vcd = open(vcd_path).read(); ids = {}
-    for m in re.finditer(r"\$var\s+\w+\s+\d+\s+(\S+)\s+(\S+)", vcd): ids.setdefault(m.group(1), m.group(2))
-    cnt = Counter(re.findall(r"^[01xz](\S+)$", vcd.split("$enddefinitions")[1], re.M))
-    return sum(c for i, c in cnt.items() if ids.get(i, "").split("[")[0] not in input_names)
+    """count value changes on non-input nets, streaming (VCDs of large designs are gigabytes)"""
+    ids = {}; skip = set(); total = 0; in_defs = True
+    with open(vcd_path) as f:
+        for line in f:
+            if in_defs:
+                if line.startswith("$var"):
+                    parts = line.split(); ids[parts[3]] = parts[4]
+                    if parts[4].split("[")[0] in input_names: skip.add(parts[3])
+                elif line.startswith("$enddefinitions"): in_defs = False
+                continue
+            c = line[0]
+            if c in "01xz":
+                if line[1:].strip() not in skip: total += 1
+            elif c == "b":
+                if line.split()[1] not in skip: total += 1
+    return total
+
 def ports_of(pnl):
     """(inputs, outputs) as [(name, width)] from the powered netlist header (VPWR/VGND excluded)."""
     src = open(pnl).read(); hdr = re.search(r"module\s+\w+\s*\((.*?)\);", src, re.S).group(1)
