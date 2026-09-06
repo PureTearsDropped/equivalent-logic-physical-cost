@@ -132,10 +132,11 @@ leaving the compression tree, "CPA" = the rest (final carry-propagate adder). Ch
 | 16 | Dadda | nand9 | 2608 | 9789 | 5190 ps | 2008 | 3182 | 0.10 s | 0.04 s |
 | 32 | array | nand9 | 10848 | 40719 | 21515 ps | 21456 | 60 | 0.40 s | 0.11 s |
 | 32 | Wallace | nand9 | 10848 | 40719 | 10312 ps | 5441 | 4871 | 0.46 s | 0.12 s |
+| 32 | Dadda | nand9 | 10848 | 40719 | 10153 ps | 2706 | 7448 | 0.42 s | 0.11 s |
 
 The search cost is not the problem: one timing evaluation of a 32×32 multiplier (10.8k cells) is 0.4 s in
 pure Python, and the random functional check is 0.1 s. What changes with width is *where the delay is*:
-the ripple CPA is 56 % of the Dadda delay at 4 bits and 61 % at 16 bits, so the final adder becomes the
+the ripple CPA is 56 % of the Dadda delay at 4 bits, 61 % at 16 and 73 % at 32, so the final adder becomes the
 lever. Adding a Kogge-Stone final adder (`Builder.kogge_stone`; and2/xor2/a21o prefix network, **not**
 covered by the Lean schedule theorem — checked exhaustively / randomly):
 
