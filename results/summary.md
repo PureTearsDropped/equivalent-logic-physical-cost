@@ -291,3 +291,28 @@ delay (2997 vs 3141 ps), and 2.2× less delay than the canonical-output signed-d
 carry-save (tree only) gives the same carry-free accumulation as signed-digit borrow-save at 0.44× the area. What the
 signed-digit form buys is representational: negation by wiring, symmetric digits, and total-arith's flag semantics
 (sign-unknown, structural zero) — not speed or area.
+
+## 10. Correctly rounded binary32 exp as hardware (research branch, `transcend/`)
+
+Spec: 64-entry table 2^(j/64), |r| < ln2/128, degree-6 Taylor evaluated by Estrin in 60-bit fixed point (+8 guard
+bits), every product = partial-product rows truncated at grid index < 0, Ziv decision at the exit (midpoint distance
+> 40 units of 2^-60), **no fallback stage**. `exp_f32_spec_v3.jl` sweeps every in-range binary32 input against MPFR:
+526,392,936 inputs, 0 mismatches, 0 undecided, minimum midpoint distance 298 units (7.5× the error bound).
+`exp_f32_gates.py` builds the sky130 netlist from the same integer spec; the netlist was simulated on all
+526,392,936 inputs against the spec's outputs: 0 mismatches (`exp_f32_gates_exhaustive_part{1,2}.log`).
+
+Placed and routed (LibreLane, sky130, tt corner, my STA on the routed netlist + SPEF):
+
+| design | stages | flops | cells | logic area µm² | wire m | clock / latency |
+|---|--:|--:|--:|--:|--:|---|
+| combinational, 1× cells | – | 0 | 61,647 | 447k | 1.57 | 64.4 ns (cell-only 37.3) |
+| 7-stage, standard placement | 7 | 786 | 62,903 | 470k | 1.70 | 10.6 ns (94 MHz) |
+| 7-stage, timing-driven placement, 60 % util, pins ordered | 7 | 786 | 63,241 | 470k | 1.63 | 9.6 ns (104 MHz) |
+| 7-stage + OpenROAD resizer (8 ns target) | 7 | 786 | 66,031 | 498k | 1.84 | 9.6 ns; hold fixed with 1,641 delay buffers; 1,137 gates upsized, "unable to repair" |
+| **15-stage (tree / Kogge-Stone split, exit split)** | 15 | 2,207 | 60,929 | 482k | 1.68 | **6.46 ns (155 MHz)** |
+| everything left to the standard flow (generic Verilog of the 15-stage design → abc DELAY + resizer + CTS, 6 ns target) | 15 | 2,142 | 82,996 | 710k | 2.74 | 6.99 ns (143 MHz); 27,444 buffers |
+
+Per-stage post-layout times of the 15-stage design: compression-tree stages 6.1–6.5 ns, Kogge-Stone stages 2.4–3.8 ns,
+exit 4.2 + 5.9 ns. Placement alone bought 10 %; the resizer nothing; splitting the multiplies bought 33 %. Handing the
+whole design to the standard flow gives a design 8 % slower and 47 % larger than the hand-structured 1× netlist.
+Existing gate-level exp in total-arith-hardware (not correctly rounded): 270k gates, depth 791.
