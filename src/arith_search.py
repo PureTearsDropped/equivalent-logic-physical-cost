@@ -61,9 +61,7 @@ class Builder:
         P=[None]*W
         for k in range(W):
             cin=G[k-1] if k>0 else None
-            out=XOR(p0[k],cin)
-            if out is None: raise RuntimeError(f"constant output bit {k}")
-            P[k]=out
+            P[k]=XOR(p0[k],cin)       # None = constant 0
         self.steps.append(('ks',W)); net.outputs=P; return net
 
     def ripple(self):
@@ -77,8 +75,8 @@ class Builder:
             if len(b)==3: s,_=self.fa(k,list(b)); P[k]=s
             elif len(b)==2: s,_=self.ha(k,list(b)); P[k]=s
             elif len(b)==1: P[k]=b[0]
-            else: raise RuntimeError(f"empty column {k}")
-            self.cols[k]=[P[k]]
+            else: P[k]=None            # empty column: constant 0
+            self.cols[k]=[P[k]] if P[k] is not None else []
         self.net.outputs=P; return self.net
 
 def sched_array(b):
