@@ -20,3 +20,4 @@ behav.v
 out/
 lean/*.olean
 lean/*.ilean
+.claude/

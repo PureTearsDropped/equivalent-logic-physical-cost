@@ -138,3 +138,26 @@ if __name__=="__main__":
     open(f"{d}/exp_f32_deep.v","w").write(to_verilog_exp(net,"exp_f32_deep"))
     c=json.load(open("../flow/designs/exp_f32_pipe_pl/config.json")); c.update({"DESIGN_NAME":"exp_f32_deep","VERILOG_FILES":["dir::exp_f32_deep.v"],"CLOCK_PERIOD":6.0})
     json.dump(c,open(f"{d}/config.json","w"),indent=1); print("staged exp_f32_deep (6 ns clock, timing-driven placement, util 60)")
+
+OPS={'and2':'({A} & {B})','or2':'({A} | {B})','xor2':'({A} ^ {B})','xnor2':'~({A} ^ {B})','inv':'~{A}','nand2':'~({A} & {B})','nor2':'~({A} | {B})',
+     'a21o':'(({A1} & {A2}) | {B1})','a21oi':'~(({A1} & {A2}) | {B1})','mux2':"({S} ? {A1} : {A0})",'buf':'{A}'}
+def to_generic_verilog(net, name):
+    """technology-independent Verilog (assign / always @posedge clk) for the standard synthesis flow."""
+    nm={i:f"x[{i}]" for i in range(32)}; nm[32]="clk"
+    for i in range(34,net.nnets): nm[i]=f"n{i}"
+    regs=[]; L=[]
+    for inst in net.insts:
+        base=inst['cell'].rsplit('_',1)[0]; o=list(inst['outs'].values())[0]
+        if base=='dfxtp': regs.append(o); L.append(f"  always @(posedge clk) {nm[o]} <= {nm[inst['pins']['D']]};")
+        elif base=='conb': L.append(f"  assign {nm[o]} = 1'b1;")
+        else: L.append(f"  assign {nm[o]} = {OPS[base].format(**{p:nm[x] for p,x in inst['pins'].items()})};")
+    outs=net.outputs
+    for k in range(31):
+        rhs = nm[outs[k]] if outs[k] is not None else "1'b0"
+        L.append(f"  assign y[{k}] = {rhs};")
+    L.append("  assign y[31] = 1'b0;"); dec = nm[outs[32]] if outs[32] is not None else "1'b1"; L.append(f"  assign decided = {dec};")
+    hdr=[f"module {name}(input [31:0] x, input clk, output [31:0] y, output decided);"]
+    wires=[nm[i] for i in range(34,net.nnets) if i not in regs]; regd=[nm[i] for i in regs]
+    if wires: hdr.append("  wire "+", ".join(wires)+";")
+    if regd: hdr.append("  reg "+", ".join(regd)+";")
+    return "\n".join(hdr+L+["endmodule"])+"\n"
