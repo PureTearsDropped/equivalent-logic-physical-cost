@@ -34,6 +34,11 @@ def interp2(tab,s,cl):
 
 # ---------------- truth tables (256 rows) ----------------
 ROWS=256; MASK=(1<<ROWS)-1
+def set_width(nbits):
+    """truth tables over 2*nbits primary inputs (a, b each nbits wide)"""
+    global ROWS,MASK,PRIM
+    ROWS=1<<(2*nbits); MASK=(1<<ROWS)-1
+    PRIM=[var_tt(i) for i in range(2*nbits)]
 class TT:
     __slots__=('v',)
     def __init__(s,v): s.v=v&MASK
@@ -46,18 +51,20 @@ def cell_func(cell,outpin,pinvals):
     expr=re.sub(r'\b([A-Z][A-Z0-9_]*)\b',r'P["\1"]',expr)
     return eval(expr,{'P':pinvals})
 def var_tt(bit):
-    v=0
-    for r in range(ROWS):
-        if (r>>bit)&1: v|=1<<r
+    # bit pattern of input `bit` over all ROWS rows, built by doubling
+    blk=(1<<(1<<bit))-1          # 2^bit zeros then 2^bit ones, as a 2^(bit+1)-bit word: ones in the upper half
+    unit=blk<<(1<<bit); period=1<<(bit+1); v=0; reps=ROWS//period
+    for r in range(reps): v|=unit<<(r*period)
     return TT(v)
-PRIM=[var_tt(i) for i in range(8)]   # a0..a3, b0..b3
+PRIM=[var_tt(i) for i in range(8)]   # default width 4: a0..a3, b0..b3
 
 # ---------------- netlist ----------------
 class Net:
-    def __init__(s):
+    def __init__(s,nbits=4):
+        s.nbits=nbits
         s.insts=[]          # {'cell':name,'pins':{inpin:net},'outs':{outpin:net}}
-        s.nnets=8           # nets 0..7 primary inputs
-        s.outputs=[None]*8  # net ids for p0..p7
+        s.nnets=2*nbits     # nets 0..2n-1 primary inputs (a then b)
+        s.outputs=[None]*(2*nbits)
     def add(s,cell,pins):
         c=CELLS[cell]; assert set(pins)==set(c['in']),(cell,pins)
         outs={}
@@ -69,8 +76,9 @@ class Net:
         return s
 
 def eval_tt(net):
+    if ROWS!=1<<(2*net.nbits): set_width(net.nbits)
     vals=[None]*net.nnets
-    for i in range(8): vals[i]=PRIM[i]
+    for i in range(2*net.nbits): vals[i]=PRIM[i]
     pending=list(range(len(net.insts))); guard=0
     while pending:
         rest=[]
@@ -84,15 +92,44 @@ def eval_tt(net):
         pending=rest
     return vals
 def verify(net):
-    vals=eval_tt(net)
-    for r in range(ROWS):
-        a,b=r&15,r>>4
-        got=sum(((vals[net.outputs[k]].v>>r)&1)<<k for k in range(8))
-        if got!=a*b: raise AssertionError(f"a={a} b={b} got {got}")
+    """exhaustive over all 2^(2n) input pairs (bit-parallel); feasible up to n=8"""
+    vals=eval_tt(net); n=net.nbits; m=(1<<n)-1
+    # assemble the product truth table column by column and compare against the expected table
+    exp=0
+    for r in range(ROWS): pass
+    for k in range(2*n):
+        col=vals[net.outputs[k]].v
+        want=0
+        for r in range(ROWS):
+            a,b=r&m,r>>n
+            if ((a*b)>>k)&1: want|=1<<r
+        if col!=want:
+            r=((col^want)&-(col^want)).bit_length()-1; a,b=r&m,r>>n
+            raise AssertionError(f"bit {k}: a={a} b={b}")
     return True
-
+def verify_random(net,nvec=4096,seed=0):
+    """random-vector functional check, bit-parallel (nvec rows packed in one integer per net); for n>8"""
+    import random
+    global ROWS,MASK,PRIM
+    rng=random.Random(seed); n=net.nbits
+    saveROWS,saveMASK,savePRIM=ROWS,MASK,PRIM
+    ROWS=nvec; MASK=(1<<ROWS)-1
+    A=[rng.getrandbits(n) for _ in range(nvec)]; B=[rng.getrandbits(n) for _ in range(nvec)]
+    PRIM=[TT(sum(((A[r]>>i)&1)<<r for r in range(nvec))) for i in range(n)]+[TT(sum(((B[r]>>i)&1)<<r for r in range(nvec))) for i in range(n)]
+    try:
+        vals=[None]*net.nnets
+        for i in range(2*n): vals[i]=PRIM[i]
+        for ii in topo(net):
+            inst=net.insts[ii]; pv={p:vals[x] for p,x in inst['pins'].items()}
+            for op,x in inst['outs'].items(): vals[x]=cell_func(inst['cell'],op,pv)
+        for k in range(2*n):
+            want=sum((((A[r]*B[r])>>k)&1)<<r for r in range(nvec))
+            if vals[net.outputs[k]].v!=want: raise AssertionError(f"bit {k} mismatch in random check")
+    finally:
+        ROWS,MASK,PRIM=saveROWS,saveMASK,savePRIM
+    return True
 def topo(net):
-    known=set(range(8)); order=[]; pending=list(range(len(net.insts)))
+    known=set(range(2*net.nbits)); order=[]; pending=list(range(len(net.insts)))
     while pending:
         rest=[]
         for ii in pending:
@@ -198,11 +235,12 @@ def duplicate(net,ii,sink_subset):
 
 # ---------------- Verilog export ----------------
 def to_verilog(net,name):
-    L=[f"module {name}(input [3:0] a, input [3:0] b, output [7:0] p);"]
-    nm={i:f"a[{i}]" for i in range(4)}; nm.update({4+i:f"b[{i}]" for i in range(4)})
+    n=net.nbits
+    L=[f"module {name}(input [{n-1}:0] a, input [{n-1}:0] b, output [{2*n-1}:0] p);"]
+    nm={i:f"a[{i}]" for i in range(n)}; nm.update({n+i:f"b[{i}]" for i in range(n)})
     for k,o in enumerate(net.outputs): nm[o]=f"p[{k}]"
-    wires=[f"n{i}" for i in range(8,net.nnets) if i not in nm]
-    for i in range(8,net.nnets): nm.setdefault(i,f"n{i}")
+    wires=[f"n{i}" for i in range(2*n,net.nnets) if i not in nm]
+    for i in range(2*n,net.nnets): nm.setdefault(i,f"n{i}")
     if wires: L.append("  wire "+", ".join(wires)+";")
     for ii,inst in enumerate(net.insts):
         conns=[f".{p}({nm[n]})" for p,n in inst['pins'].items()]+[f".{p}({nm[n]})" for p,n in inst['outs'].items()]

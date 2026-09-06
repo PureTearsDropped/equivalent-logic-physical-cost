@@ -6,12 +6,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fullcell import *
 
 class Builder:
-    def __init__(self, pp='nand+inv', ha='nand5', fa='nand9', size=1, late_to_cin=True):
-        self.net=Net(); self.ppf=PP_MENU[pp]; self.haf=HA_MENU[ha]; self.faf=FA_MENU[fa]; self.s=size; self.late=late_to_cin
-        self.cols={k:[] for k in range(8)}; self.steps=[]
-        A=list(range(4)); B=list(range(4,8))
-        for i in range(4):
-            for j in range(4): self.cols[i+j].append(self.ppf(self.net,A[i],B[j],size))
+    def __init__(self, pp='nand+inv', ha='nand5', fa='nand9', size=1, late_to_cin=True, n=4):
+        self.n=n; self.net=Net(n); self.ppf=PP_MENU[pp]; self.haf=HA_MENU[ha]; self.faf=FA_MENU[fa]; self.s=size; self.late=late_to_cin
+        self.cols={k:[] for k in range(2*n)}; self.steps=[]
+        A=list(range(n)); B=list(range(n,2*n))
+        for i in range(n):
+            for j in range(n): self.cols[i+j].append(self.ppf(self.net,A[i],B[j],size))
         self._arr=None
     def arrivals(self):
         if self._arr is None: self._arr=timing_detail(self.net)['arrival']
@@ -32,8 +32,9 @@ class Builder:
     def height(self): return max(len(v) for v in self.cols.values())
     def ripple(self):
         """final carry-propagate: column by column, FA on 3 bits, HA on 2, pass 1."""
-        P=[None]*8
-        for k in range(8):
+        arr=self.arrivals(); self.tree_delay=max(arr[x] for k in self.cols for x in self.cols[k])
+        P=[None]*(2*self.n)
+        for k in range(2*self.n):
             while len(self.cols[k])>3: self.fa(k,self.order_by_arrival(self.cols[k])[:3])
             b=self.cols[k]
             if len(b)==3: s,_=self.fa(k,list(b)); P[k]=s
@@ -46,28 +47,19 @@ class Builder:
 def sched_array(b):
     """row-by-row accumulation (the classic array multiplier): reproduces pa4x4.build_array4"""
     # rows: row i occupies columns i..i+3; accumulate rows 1..3 into the running sum with a ripple per row
-    rows={i:{} for i in range(4)}
-    bits={k:list(v) for k,v in b.cols.items()}
-    # identify pp bits by construction order: pp (i,j) was appended in i-major order
-    idx=0; ppn={}
-    for i in range(4):
-        for j in range(4): ppn[i,j]=bits[i+j][ (i if True else 0) ] if False else None
-    # simpler: rebuild mapping from net ids: pp nets were created in order i*4+j
-    order=[n for k in range(8) for n in b.cols[k]]
-    ids=sorted(order)  # net ids increase with creation order
-    for i in range(4):
-        for j in range(4): ppn[i,j]=ids[i*4+j] if b.ppf is PP_and2 else ids[i*4+j]
-    # with nand+inv each pp creates 2 nets; the pp output is the inv output (the larger id). handle generically:
-    outs=set(n for k in b.cols for n in b.cols[k]); ids=sorted(outs)
-    for i in range(4):
-        for j in range(4): ppn[i,j]=ids[i*4+j]
-    acc={j:ppn[0,j] for j in range(4)}  # column -> net
-    for i in range(1,4):
+    ppn={}
+    # pp output nets were created in i-major order; their ids increase with creation order
+    n=b.n
+    outs=set(x for k in b.cols for x in b.cols[k]); ids=sorted(outs)
+    for i in range(n):
+        for j in range(n): ppn[i,j]=ids[i*n+j]
+    acc={j:ppn[0,j] for j in range(n)}  # column -> net
+    for i in range(1,n):
         carry=None; new={}
-        for k in range(i, i+4+1):
+        for k in range(i, i+n+1):
             got=[]
             if k in acc: got.append(acc[k])
-            if k-i in range(4): got.append(ppn[i,k-i])
+            if k-i in range(n): got.append(ppn[i,k-i])
             if carry is not None: got.append(carry)
             if len(got)==3: s,c=b.fa(k,got); new[k]=s; carry=c
             elif len(got)==2: s,c=b.ha(k,got); new[k]=s; carry=c
@@ -75,7 +67,7 @@ def sched_array(b):
             else: carry=None
         for k in range(i): new[k]=acc[k]
         acc=new
-    for k in range(8): b.cols[k]=[acc[k]] if k in acc else b.cols[k]
+    for k in range(2*n): b.cols[k]=[acc[k]] if k in acc else b.cols[k]
     return b
 
 def sched_wallace(b):
@@ -86,7 +78,9 @@ def sched_wallace(b):
     return b
 
 def sched_dadda(b):
-    targets=[3,2]
+    targets=[]; t=2
+    while t<b.height(): targets.append(t); t=int(t*3//2)
+    targets=targets[::-1]
     for t in targets:
         for k in sorted(b.cols):
             while len(b.cols[k])>t:
@@ -110,10 +104,11 @@ def sched_random(b,rng,p_ha=0.15):
             if ks2: k=rng.choice(ks2); b.ha(k,rng.sample(b.cols[k],2))
     return b
 
-def build(sched,rng=None,**kw):
+def build(sched,rng=None,check=True,**kw):
     b=Builder(**kw)
-    (sched(b,rng) if sched is sched_random else sched(b)); net=b.ripple(); verify(net)
-    d,a,_,_=timing(net); return net,d,a,b.steps
+    (sched(b,rng) if sched is sched_random else sched(b)); net=b.ripple()
+    if check: (verify(net) if b.n<=8 else verify_random(net,4096))
+    d,a,_,_=timing(net); b.total_delay=d; return net,d,a,b.steps if not hasattr(b,'tree_delay') else (b.steps,b.tree_delay)
 
 if __name__=="__main__":
     out={}

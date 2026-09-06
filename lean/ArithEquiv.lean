@@ -133,4 +133,54 @@ theorem multiplier_correct (a0 a1 a2 a3 b0 b1 b2 b3 p0 p1 p2 p3 p4 p5 p6 p7 : Bo
   rw [h]
   cases p0 <;> cases p1 <;> cases p2 <;> cases p3 <;> cases p4 <;> cases p5 <;> cases p6 <;> cases p7 <;> decide
 
+/-! ## General width: partial products of n×m bit lists (LSB first) -/
+
+/-- value of a bit list, least-significant bit first -/
+def bval : List Bool → Nat
+  | [] => 0
+  | b :: t => b.toNat + 2 * bval t
+
+/-- one partial-product row: `ai ∧ bj` at weight `w + j` -/
+def ppRow (w : Nat) (ai : Bool) : List Bool → List (Nat × Bool)
+  | [] => []
+  | bj :: t => (w, ai && bj) :: ppRow (w + 1) ai t
+
+/-- all rows: row `i` of `a` starts at weight `w + i` -/
+def ppAll (w : Nat) : List Bool → List Bool → List (Nat × Bool)
+  | [], _ => []
+  | ai :: t, b => ppRow w ai b ++ ppAll (w + 1) t b
+
+/-- the output bits `p` laid out at weights `w, w+1, …` -/
+def outList (w : Nat) : List Bool → List (Nat × Bool)
+  | [] => []
+  | p :: t => (w, p) :: outList (w + 1) t
+
+theorem ppRow_value (w : Nat) (ai : Bool) (b : List Bool) :
+    wval (ppRow w ai b) = (if ai then 2 ^ w * bval b else 0) := by
+  induction b generalizing w with
+  | nil => cases ai <;> simp [ppRow, wval, bval]
+  | cons bj t ih =>
+    cases ai <;> cases bj <;> simp [ppRow, wval, bval, ih, Nat.pow_succ, Nat.mul_add, Nat.mul_assoc, Nat.mul_comm 2]
+
+theorem ppAll_value (w : Nat) (a b : List Bool) :
+    wval (ppAll w a b) = 2 ^ w * (bval a * bval b) := by
+  induction a generalizing w with
+  | nil => simp [ppAll, wval, bval]
+  | cons ai t ih =>
+    cases ai <;> simp [ppAll, wval_append, ppRow_value, ih, bval, Nat.pow_succ, Nat.mul_add, Nat.add_mul,
+                       Nat.mul_assoc, Nat.mul_comm 2, Nat.mul_left_comm]
+
+theorem outList_value (w : Nat) (p : List Bool) : wval (outList w p) = 2 ^ w * bval p := by
+  induction p generalizing w with
+  | nil => simp [outList, wval, bval]
+  | cons x t ih => cases x <;> simp [outList, wval, bval, ih, Nat.pow_succ, Nat.mul_add, Nat.mul_assoc, Nat.mul_comm 2]
+
+/-- **General width.** Any compression schedule from the partial products of `a` and `b`
+    to one bit per weight computes the product. -/
+theorem multiplier_correct_general (a b p : List Bool)
+    (sch : Schedule (ppAll 0 a b) (outList 0 p)) : bval p = bval a * bval b := by
+  have h := schedule_preserves sch
+  rw [ppAll_value, outList_value] at h
+  simpa using h.symm
+
 end ArithEquiv
