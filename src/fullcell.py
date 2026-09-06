@@ -16,7 +16,7 @@ for f in sorted(glob.glob(str(CELLS_DIR/'*_[124].json'))):
         p=k[4:]
         if v['direction']=='input': c['in'][p]=v['capacitance']
         else:
-            tl=v['timing']; tl=[tl] if isinstance(tl,dict) else tl
+            tl=v.get('timing',[]); tl=[tl] if isinstance(tl,dict) else tl     # tie cells: no arcs
             arcs=[]
             for t in tl:
                 a={'pin':t['related_pin'],'sense':t.get('timing_sense')}
@@ -49,7 +49,8 @@ class TT:
 def cell_func(cell,outpin,pinvals):
     expr=CELLS[cell]['out'][outpin]['func'].replace('!','~')
     expr=re.sub(r'\b([A-Z][A-Z0-9_]*)\b',r'P["\1"]',expr)
-    return eval(expr,{'P':pinvals})
+    v=eval(expr,{'P':pinvals})
+    return TT(MASK if v else 0) if isinstance(v,int) else v      # tie cells: function "1" / "0"
 def var_tt(bit):
     # bit pattern of input `bit` over all ROWS rows, built by doubling
     blk=(1<<(1<<bit))-1          # 2^bit zeros then 2^bit ones, as a 2^(bit+1)-bit word: ones in the upper half
@@ -268,3 +269,19 @@ if __name__=="__main__":
         nm=f"u_{ppv}_{hav}_{fav}".replace('+','_')
         open(f"{nm}.v","w").write(to_verilog(net,nm)); s=sta_delay(f"{nm}.v",nm)
         print(f"  pp={ppv:9s} ha={hav:8s} fa={fav:12s} cells={len(net.insts):3d} area={a:6.1f}  model={d*1000:6.0f}ps  STA={s*1000 if s else float('nan'):6.0f}ps")
+
+def buffer_high_fanout(net, limit=12, cell='buf_2'):
+    """Post-pass: any net with more than `limit` sinks gets a buffer tree (function unchanged)."""
+    changed=True; passes=0
+    while changed and passes<8:
+        changed=False; passes+=1
+        sinks={}
+        for ii,inst in enumerate(net.insts):
+            for p,x in inst['pins'].items(): sinks.setdefault(x,[]).append((ii,p))
+        for src,sk in list(sinks.items()):
+            if len(sk)<=limit: continue
+            changed=True
+            for g in range(0,len(sk),limit):
+                b=net.add(cell,{'A':src})['X']
+                for ii,p in sk[g:g+limit]: net.insts[ii]['pins'][p]=b
+    return net

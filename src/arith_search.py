@@ -17,6 +17,7 @@ class Builder:
         if self._arr is None: self._arr=timing_detail(self.net)['arrival']
         return self._arr
     def order_by_arrival(self,bits):
+        if getattr(self,'no_arrival',False): return list(bits)      # big datapaths: skip per-step timing
         a=self.arrivals(); return sorted(bits,key=lambda n:a[n])
     def fa(self,k,bits):
         assert len(bits)==3 and all(b in self.cols[k] for b in bits)
@@ -34,7 +35,8 @@ class Builder:
         """final carry-propagate as a Kogge-Stone parallel-prefix adder over the two remaining rows.
         Cells: and2 (generate / group propagate), xor2 (propagate / sum), a21o (group generate).
         Missing bits are constant 0 and are folded away. NOT covered by the Lean schedule theorem: checked exhaustively/randomly."""
-        arr=self.arrivals(); self.tree_delay=max(arr[x] for k in self.cols for x in self.cols[k])
+        if not getattr(self,'no_arrival',False):
+            arr=self.arrivals(); self.tree_delay=max(arr[x] for k in self.cols for x in self.cols[k])
         W=getattr(self,'W',2*self.n); net=self.net; s=self.s
         for k in range(W):
             while len(self.cols[k])>2: self.fa(k,self.order_by_arrival(self.cols[k])[:3])
@@ -66,7 +68,8 @@ class Builder:
 
     def ripple(self):
         """final carry-propagate: column by column, FA on 3 bits, HA on 2, pass 1."""
-        arr=self.arrivals(); self.tree_delay=max(arr[x] for k in self.cols for x in self.cols[k])
+        if not getattr(self,'no_arrival',False):
+            arr=self.arrivals(); self.tree_delay=max(arr[x] for k in self.cols for x in self.cols[k])
         W=getattr(self,'W',2*self.n)
         P=[None]*W
         for k in range(W):
