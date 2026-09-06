@@ -68,6 +68,16 @@ every other design on all three axes. Keeping the arithmetic structure and rewri
 worked where discarding structure and re-synthesizing from the function (abc) did not.
 Details in `results/summary.md` §5; reproduce with `python3 src/arith_search.py 400`.
 
+### Scaling (4 → 32 bits)
+
+The builder and checks are generalized to n bits (`src/scale_sweep.py`) and the Lean theorem to any width
+(`multiplier_correct_general`). Search cost is not the issue: one timing evaluation of a 32×32 multiplier
+(over 10k cells) takes 0.4 s in pure Python and the random check 0.1 s. What changes with width is where the
+delay lives: the final adder is 56 % of the Dadda delay at 4 bits and 61 % at 16. A Kogge-Stone final adder
+loses at 4 bits (fan-out), gains 12 % at 8 and 37 % at 16. Placed and routed at 8×8: array 5692 ps → Dadda
+3505 ps (same 600 cells, −36 % energy) → Dadda + Kogge-Stone 3120 ps; the standard flow (3 ns target) is
+3620 ps at 3.7× the area and 6.3× the energy. Tables in `results/summary.md` §6.
+
 ## Retractions
 
 Intermediate claims that were withdrawn are kept here rather than deleted.

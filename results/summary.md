@@ -112,3 +112,59 @@ Post-layout (LibreLane, SPEF) and glitch-inclusive energy (SDF simulation, 32768
 Phase 2 (instance-level resize + duplicate, cell-only STA) on top of Dadda buys another 5–7 % for 6–17 % area
 (dadda_nand9: 1379 → 1284 ps at +6 %; dadda_xa: 1463 → 1402 ps at +17 %) — the same modest ratio as before.
 The schedule is where the big lever is; sizing and duplication remain second-order.
+
+## 6. Scaling: 4 → 32 bits (research branch)
+
+`src/scale_sweep.py` and `src/final_adder_sweep.py`. Cell-only NLDM STA; "tree" = arrival of the last bit
+leaving the compression tree, "CPA" = the rest (final carry-propagate adder). Checks: exhaustive for n ≤ 8,
+4096 random vectors (bit-parallel) for n ≥ 16; the schedule itself is covered for every width by
+`ArithEquiv.multiplier_correct_general`.
+
+| n | schedule | FA | cells | area µm² | delay | tree | CPA | timing eval | check |
+|--:|---|---|--:|--:|--:|--:|--:|--:|--:|
+| 4 | array | nand9 | 124 | 465 | 1920 ps | 1863 | 57 | 0.01 s | 0.00 s |
+| 4 | Dadda | nand9 | 124 | 465 | 1379 ps | 604 | 775 | 0.00 s | 0.00 s |
+| 8 | array | nand9 | 600 | 2252 | 4720 ps | 4660 | 60 | 0.02 s | 0.10 s |
+| 8 | Wallace | nand9 | 600 | 2252 | 2906 ps | 1727 | 1179 | 0.02 s | 0.09 s |
+| 8 | Dadda | nand9 | 600 | 2252 | 2708 ps | 1267 | 1442 | 0.02 s | 0.09 s |
+| 16 | array | nand9 | 2608 | 9789 | 10318 ps | 10259 | 60 | 0.10 s | 0.04 s |
+| 16 | Wallace | nand9 | 2608 | 9789 | 5375 ps | 2959 | 2416 | 0.10 s | 0.04 s |
+| 16 | Dadda | nand9 | 2608 | 9789 | 5190 ps | 2008 | 3182 | 0.10 s | 0.04 s |
+| 32 | array | nand9 | 10848 | 40719 | 21515 ps | 21456 | 60 | 0.40 s | 0.11 s |
+| 32 | Wallace | nand9 | 10848 | 40719 | 10312 ps | 5441 | 4871 | 0.46 s | 0.12 s |
+
+The search cost is not the problem: one timing evaluation of a 32×32 multiplier (10.8k cells) is 0.4 s in
+pure Python, and the random functional check is 0.1 s. What changes with width is *where the delay is*:
+the ripple CPA is 56 % of the Dadda delay at 4 bits and 61 % at 16 bits, so the final adder becomes the
+lever. Adding a Kogge-Stone final adder (`Builder.kogge_stone`; and2/xor2/a21o prefix network, **not**
+covered by the Lean schedule theorem — checked exhaustively / randomly):
+
+| n | FA | final adder | cells | area µm² | delay | CPA |
+|--:|---|---|--:|--:|--:|--:|
+| 4 | nand9 | ripple | 124 | 465 | 1379 ps | 775 |
+| 4 | nand9 | Kogge-Stone | 127 | 651 | 1559 ps | 954 |
+| 8 | nand9 | ripple | 600 | 2252 | 2708 ps | 1442 |
+| 8 | nand9 | Kogge-Stone | 646 | 2964 | 2377 ps | 1111 |
+| 16 | nand9 | ripple | 2608 | 9789 | 5190 ps | 3182 |
+| 16 | nand9 | Kogge-Stone | 2793 | 11909 | 3284 ps | 1276 |
+| 16 | xor2x2+a21o | ripple | 1184 | 8848 | 6103 ps | 4036 |
+| 16 | xor2x2+a21o | Kogge-Stone | 1517 | 11044 | 3409 ps | 1342 |
+
+Kogge-Stone loses at 4 bits (its fan-out costs more than the 3-level ripple it replaces), gains 12 % at 8
+bits and 37 % at 16 bits for +22 % area. The right final adder is width-dependent, i.e. one more thing the
+search must choose rather than the designer.
+
+### 8×8 placed and routed (LibreLane, SPEF; energy from SDF simulation, 16384 random vectors, 200 MHz)
+
+| design | arrival | cells | logic area µm² | wire µm | E_vcd / op | glitch |
+|---|--:|--:|--:|--:|--:|--:|
+| m8_array_nand9 (array, 9-NAND) | 5692 ps | 600 | 2252 | 4322 | 1072 fJ | 43 % |
+| m8_dadda_nand9 (Dadda + ripple, 9-NAND) | 3505 ps | 600 | 2252 | 5046 | 686 fJ | 28 % |
+| **m8_dadda_nand9_ks** (Dadda + Kogge-Stone, 9-NAND) | **3120 ps** | 646 | 2964 | 7223 | 737 fJ | 21 % |
+| m8_dadda_xa_ks (Dadda + Kogge-Stone, xor2/a21o) | 3150 ps | 386 | 2770 | 5930 | 714 fJ | 21 % |
+| m8_behav_delay_3ns (standard flow, DELAY, 3 ns target) | 3620 ps | 716 | 8288 | 16591 | 4320 fJ | 23 % |
+
+At 8 bits the picture is the same as at 4: re-wiring the same 600 cells from array to Dadda order is 38 %
+faster and 36 % lower energy at zero area cost; the standard flow is slower than Dadda+ripple while using
+3.7× the area and 6.3× the energy. OpenSTA's probabilistic power estimate is 14–33× above simulation at this
+size (it was 1.3–2.2× at 4 bits) — it is unusable as a ranking signal for deep reconvergent logic.

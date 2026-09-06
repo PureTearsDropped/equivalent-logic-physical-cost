@@ -30,6 +30,42 @@ class Builder:
         s,c=self.haf(self.net,bits[0],bits[1],self.s)
         self.cols[k].append(s); self.cols.setdefault(k+1,[]).append(c); self._arr=None; self.steps.append(('ha',k)); return s,c
     def height(self): return max(len(v) for v in self.cols.values())
+    def kogge_stone(self):
+        """final carry-propagate as a Kogge-Stone parallel-prefix adder over the two remaining rows.
+        Cells: and2 (generate / group propagate), xor2 (propagate / sum), a21o (group generate).
+        Missing bits are constant 0 and are folded away. NOT covered by the Lean schedule theorem: checked exhaustively/randomly."""
+        arr=self.arrivals(); self.tree_delay=max(arr[x] for k in self.cols for x in self.cols[k])
+        W=2*self.n; net=self.net; s=self.s
+        for k in range(W):
+            while len(self.cols[k])>2: self.fa(k,self.order_by_arrival(self.cols[k])[:3])
+        AND=lambda x,y: None if x is None or y is None else net.add(sz('and2',s),{'A':x,'B':y})['X']
+        XOR=lambda x,y: y if x is None else x if y is None else net.add(sz('xor2',s),{'A':x,'B':y})['X']
+        def A21O(p,gp,g):  # (p & gp) | g
+            t=AND(p,gp)
+            if t is None: return g
+            if g is None: return t
+            return net.add(sz('a21o',s),{'A1':p,'A2':gp,'B1':g})['X']
+        G=[None]*W; Pp=[None]*W; p0=[None]*W
+        for k in range(W):
+            b=self.cols[k]
+            if len(b)==2: x,y=b; G[k]=AND(x,y); Pp[k]=XOR(x,y)
+            elif len(b)==1: G[k]=None; Pp[k]=b[0]
+            else: G[k]=None; Pp[k]=None
+            p0[k]=Pp[k]
+        d=1
+        while d<W:
+            Gn=list(G); Pn=list(Pp)
+            for k in range(d,W):
+                Gn[k]=A21O(Pp[k],G[k-d],G[k]); Pn[k]=AND(Pp[k],Pp[k-d])
+            G,Pp=Gn,Pn; d*=2
+        P=[None]*W
+        for k in range(W):
+            cin=G[k-1] if k>0 else None
+            out=XOR(p0[k],cin)
+            if out is None: raise RuntimeError(f"constant output bit {k}")
+            P[k]=out
+        self.steps.append(('ks',W)); net.outputs=P; return net
+
     def ripple(self):
         """final carry-propagate: column by column, FA on 3 bits, HA on 2, pass 1."""
         arr=self.arrivals(); self.tree_delay=max(arr[x] for k in self.cols for x in self.cols[k])
@@ -104,9 +140,9 @@ def sched_random(b,rng,p_ha=0.15):
             if ks2: k=rng.choice(ks2); b.ha(k,rng.sample(b.cols[k],2))
     return b
 
-def build(sched,rng=None,check=True,**kw):
+def build(sched,rng=None,check=True,final='ripple',**kw):
     b=Builder(**kw)
-    (sched(b,rng) if sched is sched_random else sched(b)); net=b.ripple()
+    (sched(b,rng) if sched is sched_random else sched(b)); net=b.kogge_stone() if final=='ks' else b.ripple()
     if check: (verify(net) if b.n<=8 else verify_random(net,4096))
     d,a,_,_=timing(net); b.total_delay=d; return net,d,a,b.steps if not hasattr(b,'tree_delay') else (b.steps,b.tree_delay)
 
