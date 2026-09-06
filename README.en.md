@@ -1,5 +1,7 @@
 # equivalent-logic-physical-cost
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22486589.svg)](https://doi.org/10.5281/zenodo.22486589)
+
 **Functionally equivalent logic implementations compared under real physical cost.**
 The subject is an exact unsigned 4×4 multiplier. Netlists that compute exactly the same function
 (verified on all 256 input pairs) are compared on the SkyWater SKY130 standard-cell library with

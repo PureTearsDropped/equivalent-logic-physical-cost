@@ -34,3 +34,10 @@ keywords:
   - power estimation
   - glitch power
   - exact multiplier
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.22486589"
+    description: "Zenodo concept DOI (resolves to the latest version)"
+  - type: doi
+    value: "10.5281/zenodo.22486590"
+    description: "Zenodo DOI of v1.0.0"

@@ -1,5 +1,7 @@
 # equivalent-logic-physical-cost
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22486589.svg)](https://doi.org/10.5281/zenodo.22486589)
+
 **等価な論理実装を、実セルの遅延・面積・電力で比べる。** 題材は正確な符号なし 4×4 乗算器。
 機能が完全に同じ(256/256 の網羅検証)ネットリスト群を、SkyWater SKY130 の実セル遅延表、OpenSTA、
 OpenROAD/LibreLane の配置配線、SDF 付きゲートレベルシミュレーションで比較し、
